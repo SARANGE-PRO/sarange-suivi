@@ -51,6 +51,10 @@ body,
   min-height: 100%;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   font-family: "Inter", sans-serif;
@@ -60,6 +64,10 @@ body {
     linear-gradient(180deg, rgba(255, 255, 255, 0.4), transparent 24%),
     var(--bg);
   color: var(--text);
+}
+
+body.modal-open {
+  overflow: hidden;
 }
 
 body::before {
@@ -84,6 +92,7 @@ input,
 select,
 textarea {
   font: inherit;
+  font-size: 16px;
 }
 
 button {
@@ -267,10 +276,16 @@ textarea:focus {
 }
 
 .nav-link {
+  display: block;
   padding: 0.95rem 1rem;
   background: rgba(255, 255, 255, 0.35);
   color: var(--text-soft);
   font-weight: 700;
+}
+
+.nav-link--trash {
+  margin-top: 0.35rem;
+  text-align: center;
 }
 
 .nav-link:hover,
@@ -319,6 +334,12 @@ textarea:focus {
   align-content: start;
 }
 
+.quick-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
 .hero-panel {
   position: relative;
   overflow: hidden;
@@ -361,19 +382,16 @@ textarea:focus {
 .stat-card {
   position: relative;
   overflow: hidden;
-  border-radius: 24px;
-  padding: 1.1rem 1.15rem;
-  background: linear-gradient(165deg, rgba(15, 23, 42, 0.04), rgba(15, 23, 42, 0));
+  border-radius: 16px;
+  padding: 0.62rem 0.72rem;
+  background: rgba(255, 255, 255, 0.32);
   border: 1px solid var(--border);
+  box-shadow: none;
+  opacity: 0.78;
 }
 
 .stat-card::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto auto 0;
-  width: 100%;
-  height: 4px;
-  background: linear-gradient(90deg, var(--orange), rgba(249, 115, 22, 0));
+  display: none;
 }
 
 .stat-card span,
@@ -382,10 +400,21 @@ textarea:focus {
   color: var(--text-soft);
 }
 
+.stat-card span {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.stat-card small {
+  font-size: 0.72rem;
+}
+
 .stat-card strong {
   display: block;
-  margin: 0.45rem 0;
-  font-size: 2rem;
+  margin: 0.08rem 0;
+  font-size: 1.15rem;
   letter-spacing: -0.06em;
 }
 
@@ -706,14 +735,18 @@ textarea:focus {
   place-items: center;
   padding: 1.25rem;
   z-index: 20;
+  height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .modal-panel {
   width: min(100%, 960px);
-  max-height: calc(100vh - 2.5rem);
+  max-height: calc(100dvh - 2.5rem);
   overflow: auto;
   border-radius: 32px;
   padding: 1.35rem;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-panel__header,
@@ -1001,6 +1034,7 @@ textarea:focus {
 }
 
 @media (max-width: 900px) {
+  .quick-stats,
   .hero-panel__stats,
   .form-grid {
     grid-template-columns: 1fr;
@@ -1041,5 +1075,24 @@ textarea:focus {
   .calendar-day,
   .calendar-event {
     border-radius: 24px;
+  }
+
+  .modal-backdrop {
+    place-items: start center;
+    padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem max(0.75rem, env(safe-area-inset-bottom));
+  }
+
+  .modal-panel {
+    width: 100%;
+    max-height: calc(100dvh - 1.5rem);
+  }
+
+  .modal-actions__main {
+    width: 100%;
+  }
+
+  .modal-actions__main .ghost-button,
+  .modal-actions__main .primary-button {
+    flex: 1;
   }
 }

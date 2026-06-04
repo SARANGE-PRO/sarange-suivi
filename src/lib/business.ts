@@ -15,7 +15,6 @@ export const STATUT_COMMANDE_OPTIONS = [
   "Matériel à commander",
   "En attente de livraison matériel",
   "Fabrication en cours",
-  "Prêt",
   "Prêt à poser",
   "Prêt à livrer",
   "Prêt à l'enlèvement",
@@ -224,7 +223,7 @@ export function getAlertInfo(commande: Commande, now = new Date()): AlertInfo {
   }
 
   if (commande.statutCommande.includes("Prêt")) {
-    return { label: "Prêt", tone: "green", priority: 70 };
+    return { label: commande.statutCommande, tone: "green", priority: 70 };
   }
 
   if (commande.statutCommande === "En attente de livraison matériel") {
@@ -418,7 +417,7 @@ export function createSeedCommandes(): Commande[] {
       numeroDevis: "DV-24018",
       client: "M. Bernard",
       typeCommande: "Fourniture seule - livraison",
-      statutCommande: "Prêt",
+      statutCommande: "Prêt à livrer",
       dateCommande: withOffset(-38),
       datePosePrevue: withOffset(1),
       datePoseFin: "",

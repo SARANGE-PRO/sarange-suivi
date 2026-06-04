@@ -33,6 +33,18 @@ export function CommandeModal({
     }
   }, [initialValue, isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    document.body.classList.add("modal-open");
+
+    return () => {
+      document.body.classList.remove("modal-open");
+    };
+  }, [isOpen]);
+
   if (!isOpen) {
     return null;
   }
@@ -119,7 +131,7 @@ export function CommandeModal({
             </label>
 
             <label className="field">
-              <span>Date de fin si plusieurs jours</span>
+              <span>Date de fin pose si plusieurs jours</span>
               <input
                 type="date"
                 value={draft.datePoseFin}
@@ -184,7 +196,7 @@ export function CommandeModal({
 
           <div className="info-banner">
             La sauvegarde applique automatiquement la date de commande, la dernière mise à jour, le renommage du
-            statut "Prêt" et la synchronisation facturation vers suivi.
+            statut prêt selon le type de commande et la synchronisation facturation vers suivi.
           </div>
 
           <div className="modal-actions">

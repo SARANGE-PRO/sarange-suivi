@@ -1,0 +1,17 @@
+{
+  "name": "Sarange Suivi",
+  "short_name": "Sarange",
+  "description": "Suivi des poses, livraisons, enlèvements et SAV Sarange.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#f97316",
+  "icons": [
+    {
+      "src": "/app-icon.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

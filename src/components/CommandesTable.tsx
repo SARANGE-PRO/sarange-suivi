@@ -268,7 +268,7 @@ export function CommandesTable({ items, onEdit, view }: CommandesTableProps) {
                     <div className="table-primary">
                       <strong>{getInterventionLabel(commande)}</strong>
                       <span>{formatDate(getInterventionStart(commande))}</span>
-                      {commande.datePoseFin ? <small>Fin : {formatDate(commande.datePoseFin)}</small> : null}
+                      {commande.datePoseFin ? <small>Date de fin pose : {formatDate(commande.datePoseFin)}</small> : null}
                     </div>
                   </td>
                   {view === "facturation" || view === "archives" ? (

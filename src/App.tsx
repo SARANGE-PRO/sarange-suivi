@@ -44,12 +44,13 @@ const store = createCommandesStore();
 
 const MAIN_NAV_ITEMS: Array<{ to: string; label: string; end?: boolean }> = [
   { to: "/", label: "Bureau général", end: true },
-  { to: "/sav", label: "SAV" },
+  { to: "/tv", label: "Planning pose" },
   { to: "/facturation", label: "Facturation" },
+  { to: "/sav", label: "SAV" },
   { to: "/archives", label: "Archives" },
-  { to: "/corbeille", label: "Corbeille" },
-  { to: "/tv", label: "Planning pose" }
 ];
+
+const TRASH_NAV_ITEM = { to: "/corbeille", label: "Corbeille" };
 
 function useThemeMode() {
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -194,25 +195,21 @@ function ShellLayout({
               Déconnexion
             </button>
           ) : null}
+          <NavLink
+            to={TRASH_NAV_ITEM.to}
+            onClick={closeSidebarOnMobile}
+            className={({ isActive }) => (isActive ? "nav-link nav-link--active nav-link--trash" : "nav-link nav-link--trash")}
+          >
+            {TRASH_NAV_ITEM.label}
+          </NavLink>
         </div>
       </aside>
 
       <main className="app-main">
-        <section className="hero-panel">
-          <div className="hero-panel__copy">
-            <p className="eyebrow">Planning partagé</p>
-            <h2>Le calendrier pilote les poses, livraisons, enlèvements et SAV.</h2>
-            <p>
-              Le bureau sert à entrer les dossiers et suivre leur avancement. La TV affiche uniquement le planning de la
-              semaine, lisible au premier coup d'œil.
-            </p>
-          </div>
-
-          <div className="hero-panel__stats">
-            <StatCard label="Dossiers actifs" value={String(activeCount)} detail="Hors facturés et archivés" />
-            <StatCard label="Cette semaine" value={String(plannedThisWeek)} detail="Poses, livraisons, enlèvements" />
-            <StatCard label="SAV" value={String(savCount)} detail="Dossiers SAV en suivi" />
-          </div>
+        <section className="quick-stats" aria-label="Synthèse discrète">
+          <StatCard label="Dossiers actifs" value={String(activeCount)} detail="Hors facturés et archivés" />
+          <StatCard label="Cette semaine" value={String(plannedThisWeek)} detail="Poses, livraisons, enlèvements" />
+          <StatCard label="SAV" value={String(savCount)} detail="Dossiers SAV en suivi" />
         </section>
 
         {children}
@@ -536,7 +533,7 @@ function CalendarEvent({ commande }: { commande: Commande }) {
       <span>{getInterventionLabel(commande)}</span>
       <strong>{commande.client || "Client non renseigné"}</strong>
       <small>{commande.numeroDevis || "Sans devis"}</small>
-      {hasRange ? <small>{formatDate(start)} → {formatDate(end)}</small> : null}
+      {hasRange ? <small>Date de fin pose : {formatDate(end)}</small> : null}
     </article>
   );
 }
