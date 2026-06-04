@@ -4,6 +4,8 @@ import {
   ArrowLeft,
   ArrowRight,
   CalendarDays,
+  LogIn,
+  LogOut,
   Menu,
   Moon,
   Plus,
@@ -36,7 +38,7 @@ import {
   toDraft
 } from "./lib/business";
 import { createCommandesStore } from "./lib/store";
-import type { Commande, CommandeDraft, ThemeMode, TrashItem } from "./types";
+import type { AppUser, Commande, CommandeDraft, ThemeMode, TrashItem } from "./types";
 
 const store = createCommandesStore();
 
@@ -90,15 +92,19 @@ function ShellLayout({
   children,
   commandes,
   trashItems,
+  user,
   theme,
   onToggleTheme,
+  onSignOut,
   onOpenCreate
 }: {
   children: ReactNode;
   commandes: Commande[];
   trashItems: TrashItem[];
+  user: AppUser | null;
   theme: ThemeMode;
   onToggleTheme: () => void;
+  onSignOut: () => void;
   onOpenCreate: () => void;
 }) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
@@ -170,6 +176,7 @@ function ShellLayout({
               : "Le fallback local synchronise les onglets avec BroadcastChannel."}
           </small>
           <small>Corbeille locale : {trashItems.length} dossier{trashItems.length > 1 ? "s" : ""}</small>
+          {store.mode === "firebase" && user ? <small>Connecté : {user.email}</small> : null}
         </div>
 
         <div className="sidebar-actions sidebar-content">
@@ -181,6 +188,12 @@ function ShellLayout({
             {theme === "light" ? <Moon size={18} aria-hidden="true" /> : <Sun size={18} aria-hidden="true" />}
             {theme === "light" ? "Passer en sombre" : "Passer en clair"}
           </button>
+          {store.mode === "firebase" && user ? (
+            <button type="button" className="ghost-button ghost-button--stretch" onClick={onSignOut}>
+              <LogOut size={18} aria-hidden="true" />
+              Déconnexion
+            </button>
+          ) : null}
         </div>
       </aside>
 
@@ -205,6 +218,51 @@ function ShellLayout({
         {children}
       </main>
     </div>
+  );
+}
+
+function AuthGate({
+  isSigningIn,
+  onSignIn,
+  onToggleTheme,
+  theme
+}: {
+  isSigningIn: boolean;
+  onSignIn: () => void;
+  onToggleTheme: () => void;
+  theme: ThemeMode;
+}) {
+  return (
+    <main className="auth-screen">
+      <section className="auth-panel">
+        <div className="brand-lockup">
+          <div className="brand-lockup__mark">S.</div>
+          <div>
+            <p className="eyebrow">Sarange</p>
+            <h1>Connexion au suivi</h1>
+          </div>
+        </div>
+
+        <div>
+          <h2>Connecte-toi avec le compte Google Sarange.</h2>
+          <p>
+            L’accès aux dossiers est protégé par Firebase. Une fois connecté, le planning et les commandes se
+            synchronisent avec Firestore.
+          </p>
+        </div>
+
+        <div className="auth-actions">
+          <button type="button" className="primary-button" onClick={onSignIn} disabled={isSigningIn}>
+            <LogIn size={18} aria-hidden="true" />
+            {isSigningIn ? "Connexion..." : "Se connecter avec Google"}
+          </button>
+          <button type="button" className="ghost-button" onClick={onToggleTheme}>
+            {theme === "light" ? <Moon size={18} aria-hidden="true" /> : <Sun size={18} aria-hidden="true" />}
+            {theme === "light" ? "Mode sombre" : "Mode clair"}
+          </button>
+        </div>
+      </section>
+    </main>
   );
 }
 
@@ -560,9 +618,11 @@ function TvPage({
 function AppContent() {
   const [commandes, setCommandes] = useState<Commande[]>(store.getSnapshot());
   const [trashItems, setTrashItems] = useState<TrashItem[]>(store.getTrashSnapshot());
+  const [user, setUser] = useState<AppUser | null>(store.getUser());
   const [draft, setDraft] = useState<CommandeDraft | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
   const { theme, toggleTheme } = useThemeMode();
 
   useEffect(() => {
@@ -577,6 +637,14 @@ function AppContent() {
     return store.subscribeTrash((next) => {
       startTransition(() => {
         setTrashItems(next);
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    return store.subscribeUser((next) => {
+      startTransition(() => {
+        setUser(next);
       });
     });
   }, []);
@@ -607,6 +675,24 @@ function AppContent() {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  async function handleSignIn() {
+    setIsSigningIn(true);
+
+    try {
+      await store.signInWithGoogle();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erreur inconnue";
+      window.alert(`Impossible de se connecter : ${message}`);
+    } finally {
+      setIsSigningIn(false);
+    }
+  }
+
+  async function handleSignOut() {
+    await store.signOutUser();
+    setIsModalOpen(false);
   }
 
   async function handleDeleteDraft(nextDraft: CommandeDraft) {
@@ -655,13 +741,17 @@ function AppContent() {
     await store.deleteFromTrash(id);
   }
 
+  if (store.mode === "firebase" && !user) {
+    return <AuthGate isSigningIn={isSigningIn} onSignIn={handleSignIn} onToggleTheme={toggleTheme} theme={theme} />;
+  }
+
   return (
     <>
       <Routes>
         <Route
           path="/"
           element={
-            <ShellLayout commandes={commandes} trashItems={trashItems} theme={theme} onToggleTheme={toggleTheme} onOpenCreate={openCreateModal}>
+            <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal}>
               <BureauPage commandes={commandes} onOpenCreate={openCreateModal} onOpenEdit={openEditModal} />
             </ShellLayout>
           }
@@ -669,7 +759,7 @@ function AppContent() {
         <Route
           path="/statut/:status"
           element={
-            <ShellLayout commandes={commandes} trashItems={trashItems} theme={theme} onToggleTheme={toggleTheme} onOpenCreate={openCreateModal}>
+            <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal}>
               <StatusPage commandes={commandes} onOpenCreate={openCreateModal} onOpenEdit={openEditModal} />
             </ShellLayout>
           }
@@ -677,7 +767,7 @@ function AppContent() {
         <Route
           path="/sav"
           element={
-            <ShellLayout commandes={commandes} trashItems={trashItems} theme={theme} onToggleTheme={toggleTheme} onOpenCreate={openCreateModal}>
+            <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal}>
               <SavPage commandes={commandes} onOpenCreate={openCreateModal} onOpenEdit={openEditModal} />
             </ShellLayout>
           }
@@ -685,7 +775,7 @@ function AppContent() {
         <Route
           path="/facturation"
           element={
-            <ShellLayout commandes={commandes} trashItems={trashItems} theme={theme} onToggleTheme={toggleTheme} onOpenCreate={openCreateModal}>
+            <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal}>
               <FacturationPage commandes={commandes} onOpenCreate={openCreateModal} onOpenEdit={openEditModal} />
             </ShellLayout>
           }
@@ -693,7 +783,7 @@ function AppContent() {
         <Route
           path="/archives"
           element={
-            <ShellLayout commandes={commandes} trashItems={trashItems} theme={theme} onToggleTheme={toggleTheme} onOpenCreate={openCreateModal}>
+            <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal}>
               <ArchivesPage commandes={commandes} onOpenCreate={openCreateModal} onOpenEdit={openEditModal} />
             </ShellLayout>
           }
@@ -701,7 +791,7 @@ function AppContent() {
         <Route
           path="/corbeille"
           element={
-            <ShellLayout commandes={commandes} trashItems={trashItems} theme={theme} onToggleTheme={toggleTheme} onOpenCreate={openCreateModal}>
+            <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal}>
               <TrashPage trashItems={trashItems} onRestore={handleRestore} onDeleteForever={handleDeleteForever} />
             </ShellLayout>
           }

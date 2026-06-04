@@ -1,4 +1,13 @@
-import { getApp, getApps, initializeApp, type FirebaseOptions } from "firebase/app";
+import { getApp, getApps, initializeApp, type FirebaseApp, type FirebaseOptions } from "firebase/app";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut,
+  type Auth,
+  type User
+} from "firebase/auth";
 import {
   collection,
   deleteDoc,
@@ -9,13 +18,14 @@ import {
   orderBy,
   query,
   setDoc,
-  type Firestore
+  type Firestore,
+  type Unsubscribe
 } from "firebase/firestore";
 import {
   createSeedCommandes,
   prepareCommandeForSave
 } from "./business";
-import type { Commande, CommandeDraft, DataMode, TrashItem } from "../types";
+import type { AppUser, Commande, CommandeDraft, DataMode, TrashItem } from "../types";
 
 interface Listener {
   (commandes: Commande[]): void;
@@ -23,10 +33,14 @@ interface Listener {
 
 interface CommandesStore {
   mode: DataMode;
+  getUser(): AppUser | null;
   getSnapshot(): Commande[];
   getTrashSnapshot(): TrashItem[];
+  subscribeUser(listener: (user: AppUser | null) => void): () => void;
   subscribe(listener: Listener): () => void;
   subscribeTrash(listener: (items: TrashItem[]) => void): () => void;
+  signInWithGoogle(): Promise<void>;
+  signOutUser(): Promise<void>;
   upsert(draft: CommandeDraft): Promise<void>;
   delete(commande: Commande): Promise<void>;
   restoreFromTrash(id: string): Promise<void>;
@@ -49,7 +63,7 @@ const firebaseConfig: FirebaseOptions = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-function createFirestore(app: ReturnType<typeof initializeApp>) {
+function createFirestore(app: FirebaseApp) {
   try {
     return initializeFirestore(app, {
       experimentalAutoDetectLongPolling: true,
@@ -58,6 +72,19 @@ function createFirestore(app: ReturnType<typeof initializeApp>) {
   } catch {
     return getFirestore(app);
   }
+}
+
+function toAppUser(user: User | null): AppUser | null {
+  if (!user) {
+    return null;
+  }
+
+  return {
+    uid: user.uid,
+    email: user.email,
+    displayName: user.displayName,
+    photoURL: user.photoURL
+  };
 }
 
 function hasFirebaseConfig() {
@@ -227,8 +254,18 @@ class LocalCommandesStore implements CommandesStore {
     return this.snapshot;
   }
 
+  getUser() {
+    return null;
+  }
+
   getTrashSnapshot() {
     return trashStore.getSnapshot();
+  }
+
+  subscribeUser(listener: (user: AppUser | null) => void) {
+    listener(null);
+
+    return () => undefined;
   }
 
   subscribe(listener: Listener) {
@@ -242,6 +279,14 @@ class LocalCommandesStore implements CommandesStore {
 
   subscribeTrash(listener: (items: TrashItem[]) => void) {
     return trashStore.subscribe(listener);
+  }
+
+  async signInWithGoogle() {
+    return undefined;
+  }
+
+  async signOutUser() {
+    return undefined;
   }
 
   async upsert(draft: CommandeDraft) {
@@ -306,15 +351,39 @@ class LocalCommandesStore implements CommandesStore {
 class FirebaseCommandesStore implements CommandesStore {
   mode: DataMode = "firebase";
   private snapshot: Commande[] = [];
+  private user: AppUser | null = null;
   private listeners = new Set<Listener>();
+  private userListeners = new Set<(user: AppUser | null) => void>();
   private db: Firestore;
+  private auth: Auth;
+  private unsubscribeCommandes: Unsubscribe | null = null;
 
   constructor() {
     const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
     this.db = createFirestore(app);
+    this.auth = getAuth(app);
+    this.auth.useDeviceLanguage();
+
+    onAuthStateChanged(this.auth, (user) => {
+      this.user = toAppUser(user);
+      this.emitUser();
+      this.unsubscribeCommandes?.();
+      this.unsubscribeCommandes = null;
+
+      if (user) {
+        this.listenCommandes();
+        return;
+      }
+
+      this.snapshot = [];
+      this.emit();
+    });
+  }
+
+  private listenCommandes() {
     const commandesQuery = query(collection(this.db, COLLECTION_NAME), orderBy("dateCommande", "desc"));
 
-    onSnapshot(
+    this.unsubscribeCommandes = onSnapshot(
       commandesQuery,
       (snapshot) => {
         this.snapshot = sortSnapshot(
@@ -331,12 +400,25 @@ class FirebaseCommandesStore implements CommandesStore {
     );
   }
 
+  getUser() {
+    return this.user;
+  }
+
   getSnapshot() {
     return this.snapshot;
   }
 
   getTrashSnapshot() {
     return trashStore.getSnapshot();
+  }
+
+  subscribeUser(listener: (user: AppUser | null) => void) {
+    this.userListeners.add(listener);
+    listener(this.user);
+
+    return () => {
+      this.userListeners.delete(listener);
+    };
   }
 
   subscribe(listener: Listener) {
@@ -350,6 +432,16 @@ class FirebaseCommandesStore implements CommandesStore {
 
   subscribeTrash(listener: (items: TrashItem[]) => void) {
     return trashStore.subscribe(listener);
+  }
+
+  async signInWithGoogle() {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    await signInWithPopup(this.auth, provider);
+  }
+
+  async signOutUser() {
+    await signOut(this.auth);
   }
 
   async upsert(draft: CommandeDraft) {
@@ -379,6 +471,10 @@ class FirebaseCommandesStore implements CommandesStore {
 
   private emit() {
     this.listeners.forEach((listener) => listener(this.snapshot));
+  }
+
+  private emitUser() {
+    this.userListeners.forEach((listener) => listener(this.user));
   }
 }
 
