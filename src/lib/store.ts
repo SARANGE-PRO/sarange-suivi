@@ -4,6 +4,7 @@ import {
   deleteDoc,
   doc,
   getFirestore,
+  initializeFirestore,
   onSnapshot,
   orderBy,
   query,
@@ -47,6 +48,17 @@ const firebaseConfig: FirebaseOptions = {
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
+
+function createFirestore(app: ReturnType<typeof initializeApp>) {
+  try {
+    return initializeFirestore(app, {
+      experimentalAutoDetectLongPolling: true,
+      ignoreUndefinedProperties: true
+    });
+  } catch {
+    return getFirestore(app);
+  }
+}
 
 function hasFirebaseConfig() {
   return Boolean(
@@ -299,7 +311,7 @@ class FirebaseCommandesStore implements CommandesStore {
 
   constructor() {
     const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-    this.db = getFirestore(app);
+    this.db = createFirestore(app);
     const commandesQuery = query(collection(this.db, COLLECTION_NAME), orderBy("dateCommande", "desc"));
 
     onSnapshot(
