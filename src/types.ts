@@ -5,6 +5,7 @@ export interface Commande {
   typeCommande: string;
   statutCommande: string;
   dateCommande: string | null;
+  ordreFabrication?: number | null;
   datePosePrevue: string | null;
   datePoseFin: string | null;
   dateSavPrevue: string | null;
@@ -43,6 +44,11 @@ export interface TrashItem {
   commande: Commande;
   deletedAt: string;
   expiresAt: string;
+}
+
+export interface FabricationOrderUpdate {
+  id: string;
+  ordreFabrication: number | null;
 }
 
 export interface AppUser {

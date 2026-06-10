@@ -18,6 +18,7 @@ import {
   orderBy,
   query,
   setDoc,
+  writeBatch,
   type Firestore,
   type Unsubscribe
 } from "firebase/firestore";
@@ -25,7 +26,7 @@ import {
   createSeedCommandes,
   prepareCommandeForSave
 } from "./business";
-import type { AppUser, Commande, CommandeDraft, DataMode, TrashItem } from "../types";
+import type { AppUser, Commande, CommandeDraft, DataMode, FabricationOrderUpdate, TrashItem } from "../types";
 
 interface Listener {
   (commandes: Commande[]): void;
@@ -42,6 +43,7 @@ interface CommandesStore {
   signInWithGoogle(): Promise<void>;
   signOutUser(): Promise<void>;
   upsert(draft: CommandeDraft): Promise<void>;
+  updateFabricationOrder(updates: FabricationOrderUpdate[]): Promise<void>;
   delete(commande: Commande): Promise<void>;
   restoreFromTrash(id: string): Promise<void>;
   deleteFromTrash(id: string): Promise<void>;
@@ -299,6 +301,24 @@ class LocalCommandesStore implements CommandesStore {
     this.persist(nextSnapshot);
   }
 
+  async updateFabricationOrder(updates: FabricationOrderUpdate[]) {
+    if (updates.length === 0) {
+      return;
+    }
+
+    const updatesById = new Map(updates.map((update) => [update.id, update.ordreFabrication]));
+    this.persist(
+      this.snapshot.map((commande) =>
+        updatesById.has(commande.id)
+          ? {
+              ...commande,
+              ordreFabrication: updatesById.get(commande.id) ?? null
+            }
+          : commande
+      )
+    );
+  }
+
   async delete(commande: Commande) {
     this.persist(this.snapshot.filter((item) => item.id !== commande.id));
     trashStore.add(commande);
@@ -448,6 +468,25 @@ class FirebaseCommandesStore implements CommandesStore {
     const previous = this.snapshot.find((commande) => commande.id === draft.id);
     const nextCommande = prepareCommandeForSave(draft, previous);
     await setDoc(doc(this.db, COLLECTION_NAME, nextCommande.id), nextCommande, { merge: true });
+  }
+
+  async updateFabricationOrder(updates: FabricationOrderUpdate[]) {
+    if (updates.length === 0) {
+      return;
+    }
+
+    const batch = writeBatch(this.db);
+    updates.forEach((update) => {
+      batch.set(
+        doc(this.db, COLLECTION_NAME, update.id),
+        {
+          ordreFabrication: update.ordreFabrication
+        },
+        { merge: true }
+      );
+    });
+
+    await batch.commit();
   }
 
   async delete(commande: Commande) {

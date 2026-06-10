@@ -2,7 +2,9 @@ import { startTransition, useDeferredValue, useEffect, useState, type ReactNode 
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useParams } from "react-router-dom";
 import {
   ArrowLeft,
+  ArrowDown,
   ArrowRight,
+  ArrowUp,
   CalendarDays,
   LogIn,
   LogOut,
@@ -19,32 +21,40 @@ import { CommandeModal } from "./components/CommandeModal";
 import { CommandesTable } from "./components/CommandesTable";
 import {
   STATUT_COMMANDE_OPTIONS,
+  createSequentialFabricationOrderUpdates,
   createEmptyCommande,
   formatDate,
   formatShortDate,
-  getAlertInfo,
+  formatWeekTitle,
   getInterventionEnd,
   getInterventionKind,
   getInterventionLabel,
   getInterventionStart,
+  getManualFabricationOrderValue,
+  getPlanningEventState,
   getWeekDays,
+  hasPlanningEvent,
+  hasManualFabricationOrder,
   isActiveCommande,
   isArchiveCommande,
   isCommandeInWeek,
   isCommandeOnDay,
+  isFabricationCommande,
   isFacturationCommande,
   isSavCommande,
   matchesSearch,
+  sortFabricationCommandes,
   toDraft
 } from "./lib/business";
 import { createCommandesStore } from "./lib/store";
-import type { AppUser, Commande, CommandeDraft, ThemeMode, TrashItem } from "./types";
+import type { AppUser, Commande, CommandeDraft, FabricationOrderUpdate, ThemeMode, TrashItem } from "./types";
 
 const store = createCommandesStore();
 
 const MAIN_NAV_ITEMS: Array<{ to: string; label: string; end?: boolean }> = [
   { to: "/", label: "Bureau général", end: true },
-  { to: "/tv", label: "Planning pose" },
+  { to: "/tv", label: "Planning Sarange" },
+  { to: "/fabrication", label: "Ordres fabrication" },
   { to: "/facturation", label: "Facturation" },
   { to: "/sav", label: "SAV" },
   { to: "/archives", label: "Archives" },
@@ -77,6 +87,14 @@ function addDays(date: Date, days: number) {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
   return next;
+}
+
+function isSameCalendarDay(left: Date, right: Date) {
+  return left.getFullYear() === right.getFullYear() && left.getMonth() === right.getMonth() && left.getDate() === right.getDate();
+}
+
+function isBeforeCalendarDay(left: Date, right: Date) {
+  return new Date(left.getFullYear(), left.getMonth(), left.getDate()).getTime() < new Date(right.getFullYear(), right.getMonth(), right.getDate()).getTime();
 }
 
 function StatCard({ label, value, detail }: { label: string; value: string; detail: string }) {
@@ -113,7 +131,7 @@ function ShellLayout({
   });
   const activeCount = commandes.filter(isActiveCommande).length;
   const weekDays = getWeekDays();
-  const plannedThisWeek = commandes.filter((commande) => isActiveCommande(commande) && isCommandeInWeek(commande, weekDays)).length;
+  const plannedThisWeek = commandes.filter((commande) => hasPlanningEvent(commande) && isCommandeInWeek(commande, weekDays)).length;
   const savCount = commandes.filter(isSavCommande).length;
 
   useEffect(() => {
@@ -208,7 +226,7 @@ function ShellLayout({
       <main className="app-main">
         <section className="quick-stats" aria-label="Synthèse discrète">
           <StatCard label="Dossiers actifs" value={String(activeCount)} detail="Hors facturés et archivés" />
-          <StatCard label="Cette semaine" value={String(plannedThisWeek)} detail="Poses, livraisons, enlèvements" />
+          <StatCard label="Cette semaine" value={String(plannedThisWeek)} detail="Interventions Sarange" />
           <StatCard label="SAV" value={String(savCount)} detail="Dossiers SAV en suivi" />
         </section>
 
@@ -382,7 +400,7 @@ function SavPage({
     <>
       <ViewToolbar
         title="SAV"
-        description="Dossiers SAV à prévoir ou déjà datés."
+        description="Dossiers SAV à prévoir, prévus ou déjà datés."
         search={search}
         onSearchChange={setSearch}
         onOpenCreate={onOpenCreate}
@@ -417,6 +435,164 @@ function FacturationPage({
       />
 
       <CommandesTable items={items} view="facturation" onEdit={onOpenEdit} />
+    </>
+  );
+}
+
+function FabricationPage({
+  commandes,
+  onOpenCreate,
+  onOpenEdit,
+  onUpdateFabricationOrder
+}: {
+  commandes: Commande[];
+  onOpenCreate: () => void;
+  onOpenEdit: (commande: Commande) => void;
+  onUpdateFabricationOrder: (updates: FabricationOrderUpdate[]) => Promise<void>;
+}) {
+  const [isUpdatingOrder, setIsUpdatingOrder] = useState(false);
+  const items = sortFabricationCommandes(commandes.filter(isFabricationCommande));
+  const manualOrderCount = items.filter(hasManualFabricationOrder).length;
+
+  async function applyOrderUpdates(updates: FabricationOrderUpdate[]) {
+    if (updates.length === 0) {
+      return;
+    }
+
+    setIsUpdatingOrder(true);
+
+    try {
+      await onUpdateFabricationOrder(updates);
+    } finally {
+      setIsUpdatingOrder(false);
+    }
+  }
+
+  async function moveCommande(commandeId: string, direction: "up" | "down") {
+    const currentIndex = items.findIndex((commande) => commande.id === commandeId);
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= items.length) {
+      return;
+    }
+
+    const reorderedItems = [...items];
+    const [movedCommande] = reorderedItems.splice(currentIndex, 1);
+    reorderedItems.splice(targetIndex, 0, movedCommande);
+
+    const nextOrderValue = getManualFabricationOrderValue(reorderedItems, targetIndex);
+    const updates =
+      nextOrderValue === null
+        ? createSequentialFabricationOrderUpdates(reorderedItems)
+        : [{ id: movedCommande.id, ordreFabrication: nextOrderValue }];
+
+    await applyOrderUpdates(updates);
+  }
+
+  async function resetManualOrder() {
+    await applyOrderUpdates(
+      items
+        .filter(hasManualFabricationOrder)
+        .map((commande) => ({
+          id: commande.id,
+          ordreFabrication: null
+        }))
+    );
+  }
+
+  return (
+    <>
+      <section className="view-section">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Atelier</p>
+            <h3>Ordres fabrication</h3>
+            <p>
+              Les dossiers au statut Fabrication en cours sont triés par date de commande, du plus ancien au plus
+              récent. Les déplacements haut/bas posent une priorité manuelle, réinitialisable à tout moment.
+            </p>
+          </div>
+          <div className="fabrication-toolbar">
+            <button type="button" className="ghost-button" onClick={resetManualOrder} disabled={manualOrderCount === 0 || isUpdatingOrder}>
+              <RotateCcw size={18} aria-hidden="true" />
+              Ordre par date
+            </button>
+            <button type="button" className="primary-button" onClick={onOpenCreate}>
+              <Plus size={18} aria-hidden="true" />
+              Nouvelle commande
+            </button>
+          </div>
+        </div>
+
+        <div className="fabrication-summary" aria-label="Synthèse ordres fabrication">
+          <span>{items.length} ordre{items.length > 1 ? "s" : ""} à traiter</span>
+          <span>{manualOrderCount} priorité{manualOrderCount > 1 ? "s" : ""} manuelle{manualOrderCount > 1 ? "s" : ""}</span>
+        </div>
+      </section>
+
+      {items.length === 0 ? (
+        <div className="empty-state">
+          <p>Aucun dossier en fabrication pour le moment.</p>
+        </div>
+      ) : (
+        <section className="fabrication-list" aria-label="Ordres de fabrication à traiter">
+          {items.map((commande, index) => {
+            const isManualOrder = hasManualFabricationOrder(commande);
+
+            return (
+              <article key={commande.id} className={isManualOrder ? "fabrication-item fabrication-item--manual" : "fabrication-item"}>
+                <div className="fabrication-rank" aria-label={`Priorité ${index + 1}`}>
+                  {index + 1}
+                </div>
+
+                <div className="fabrication-item__body">
+                  <div className="fabrication-item__title">
+                    <div>
+                      {commande.numeroDevis ? <p className="commande-card__devis">{commande.numeroDevis}</p> : null}
+                      <h3>{commande.client || "Client non renseigné"}</h3>
+                    </div>
+                    <span className="badge badge--mint">{commande.statutCommande}</span>
+                  </div>
+
+                  <div className="fabrication-item__meta">
+                    <span>Commande : {formatDate(commande.dateCommande)}</span>
+                    <span>{commande.typeCommande}</span>
+                    <span>{isManualOrder ? "Priorité manuelle" : "Ordre date commande"}</span>
+                  </div>
+
+                  <p className="fabrication-item__comment">{commande.commentaireSuivi || "Aucun commentaire suivi."}</p>
+                </div>
+
+                <div className="fabrication-item__actions">
+                  <button
+                    type="button"
+                    className="icon-button"
+                    onClick={() => moveCommande(commande.id, "up")}
+                    disabled={index === 0 || isUpdatingOrder}
+                    title="Remonter"
+                    aria-label={`Remonter ${commande.numeroDevis || commande.client || "ce dossier"}`}
+                  >
+                    <ArrowUp size={18} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    onClick={() => moveCommande(commande.id, "down")}
+                    disabled={index === items.length - 1 || isUpdatingOrder}
+                    title="Descendre"
+                    aria-label={`Descendre ${commande.numeroDevis || commande.client || "ce dossier"}`}
+                  >
+                    <ArrowDown size={18} aria-hidden="true" />
+                  </button>
+                  <button type="button" className="ghost-button" onClick={() => onOpenEdit(commande)}>
+                    Modifier
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      )}
     </>
   );
 }
@@ -492,7 +668,7 @@ function TrashPage({
                 <tr key={item.commande.id}>
                   <td>
                     <div className="table-primary">
-                      <strong>{item.commande.numeroDevis || "Sans devis"}</strong>
+                      {item.commande.numeroDevis ? <strong>{item.commande.numeroDevis}</strong> : null}
                       <span>{item.commande.client || "Client non renseigné"}</span>
                     </div>
                   </td>
@@ -527,12 +703,18 @@ function CalendarEvent({ commande }: { commande: Commande }) {
   const start = getInterventionStart(commande);
   const end = getInterventionEnd(commande);
   const hasRange = start && end && start !== end;
+  const suivi = commande.commentaireSuivi.trim();
+  const planningState = getPlanningEventState(commande);
 
   return (
-    <article className={`calendar-event calendar-event--${kind}`}>
-      <span>{getInterventionLabel(commande)}</span>
+    <article className={`calendar-event calendar-event--${kind} calendar-event--${planningState}`}>
+      <span className="calendar-event__kind">{getInterventionLabel(commande)}</span>
       <strong>{commande.client || "Client non renseigné"}</strong>
-      <small>{commande.numeroDevis || "Sans devis"}</small>
+      <div className="calendar-event__meta">
+        {commande.numeroDevis ? <small>{commande.numeroDevis}</small> : null}
+        <small>{commande.statutCommande}</small>
+      </div>
+      {suivi ? <small className="calendar-event__comment">{suivi}</small> : null}
       {hasRange ? <small>Date de fin pose : {formatDate(end)}</small> : null}
     </article>
   );
@@ -549,8 +731,17 @@ function TvPage({
 }) {
   const [weekAnchor, setWeekAnchor] = useState(new Date());
   const weekDays = getWeekDays(weekAnchor);
+  const today = new Date();
+  const hasTodayInWeek = weekDays.some((day) => isSameCalendarDay(day, today));
+  const weekCalendarStyle = hasTodayInWeek
+    ? {
+        gridTemplateColumns: weekDays
+          .map((day) => (isBeforeCalendarDay(day, today) ? "minmax(7.5rem, 0.72fr)" : "minmax(11rem, 1.18fr)"))
+          .join(" ")
+      }
+    : undefined;
   const items = commandes
-    .filter((commande) => isActiveCommande(commande) && isCommandeInWeek(commande, weekDays))
+    .filter((commande) => hasPlanningEvent(commande) && isCommandeInWeek(commande, weekDays))
     .sort((left, right) => String(getInterventionStart(left)).localeCompare(String(getInterventionStart(right))));
 
   function changeWeek(days: number) {
@@ -559,10 +750,17 @@ function TvPage({
 
   return (
     <div className="tv-screen">
+      <div className="tv-background-effects" aria-hidden="true">
+        <div className="tv-galaxy-dots" />
+        <div className="tv-wave tv-wave--one" />
+        <div className="tv-wave tv-wave--two" />
+        <div className="tv-wave tv-wave--three" />
+      </div>
+
       <header className="tv-topbar">
         <div>
-          <p className="eyebrow">Planning pose</p>
-          <h2>Semaine du {formatDate(weekDays[0].toISOString())}</h2>
+          <p className="eyebrow">Planning Sarange</p>
+          <h2>{formatWeekTitle(weekDays)}</h2>
         </div>
         <div className="tv-actions">
           <button type="button" className="icon-button" onClick={() => changeWeek(-7)} title="Semaine précédente" aria-label="Semaine précédente">
@@ -590,14 +788,26 @@ function TvPage({
         <span className="legend-dot legend-dot--sav" /> SAV
       </section>
 
-      <section className="week-calendar">
+      <section className={hasTodayInWeek ? "week-calendar week-calendar--current" : "week-calendar"} style={weekCalendarStyle}>
         {weekDays.map((day) => {
           const dayItems = items.filter((commande) => isCommandeOnDay(commande, day));
+          const isToday = isSameCalendarDay(day, today);
+          const isPastWeekday = hasTodayInWeek && isBeforeCalendarDay(day, today);
+          const dayClassName = [
+            "calendar-day",
+            isToday ? "calendar-day--today" : "",
+            isPastWeekday ? "calendar-day--past-weekday" : ""
+          ]
+            .filter(Boolean)
+            .join(" ");
 
           return (
-            <article key={day.toISOString()} className="calendar-day">
+            <article key={day.toISOString()} className={dayClassName}>
               <header>
-                <span>{formatShortDate(day)}</span>
+                <span>
+                  {formatShortDate(day)}
+                  {isToday ? <small>Aujourd'hui</small> : null}
+                </span>
                 <strong>{dayItems.length}</strong>
               </header>
 
@@ -671,6 +881,15 @@ function AppContent() {
       window.alert(`Impossible d'enregistrer la commande : ${message}`);
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleUpdateFabricationOrder(updates: FabricationOrderUpdate[]) {
+    try {
+      await store.updateFabricationOrder(updates);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erreur inconnue";
+      window.alert(`Impossible de mettre à jour l'ordre de fabrication : ${message}`);
     }
   }
 
@@ -758,6 +977,19 @@ function AppContent() {
           element={
             <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal}>
               <StatusPage commandes={commandes} onOpenCreate={openCreateModal} onOpenEdit={openEditModal} />
+            </ShellLayout>
+          }
+        />
+        <Route
+          path="/fabrication"
+          element={
+            <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal}>
+              <FabricationPage
+                commandes={commandes}
+                onOpenCreate={openCreateModal}
+                onOpenEdit={openEditModal}
+                onUpdateFabricationOrder={handleUpdateFabricationOrder}
+              />
             </ShellLayout>
           }
         />

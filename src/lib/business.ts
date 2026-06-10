@@ -1,4 +1,4 @@
-import type { AlertInfo, Commande, CommandeDraft } from "../types";
+import type { AlertInfo, Commande, CommandeDraft, FabricationOrderUpdate } from "../types";
 
 export const TYPE_COMMANDE_OPTIONS = [
   "Fourniture seule - livraison",
@@ -22,8 +22,11 @@ export const STATUT_COMMANDE_OPTIONS = [
   "À facturer",
   "Facturé",
   "Archivé",
-  "SAV à prévoir"
+  "SAV à prévoir",
+  "SAV prévu"
 ] as const;
+
+export const FABRICATION_STATUS = "Fabrication en cours";
 
 export const ETAT_FACTURATION_OPTIONS = [
   "À facturer",
@@ -34,10 +37,14 @@ export const ETAT_FACTURATION_OPTIONS = [
 ] as const;
 
 export type InterventionKind = "pose" | "livraison" | "enlevement" | "sav" | "autre";
+export type PlanningEventState = "upcoming" | "past" | "kept";
 
 const TERMINAL_STATUSES = new Set(["Facturé", "Archivé"]);
 const ARCHIVE_FILTER_STATUSES = new Set(["Archivé"]);
 const BILLING_ACTIVE_STATES = new Set(["Facture faite", "Facture envoyée"]);
+const PLANNING_HISTORY_STATUSES = new Set(["Pose / livraison terminée", "À facturer", "Facturé", "Archivé"]);
+const PLANNING_HISTORY_BILLING_STATES = new Set(["Facture faite", "Facture envoyée", "Payé"]);
+const FABRICATION_ORDER_STEP = 60_000;
 
 function stripAccents(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -73,6 +80,15 @@ function formatAsDateInput(date: Date) {
 function dayDifference(from: Date, to: Date) {
   const diff = startOfDay(to).getTime() - startOfDay(from).getTime();
   return Math.floor(diff / 86_400_000);
+}
+
+function getDateOrderValue(value: string | null | undefined) {
+  const date = toDate(value);
+  return date ? date.getTime() : Number.MAX_SAFE_INTEGER;
+}
+
+function getStableCommandeLabel(commande: Commande) {
+  return `${commande.numeroDevis} ${commande.client} ${commande.id}`;
 }
 
 function normalizeReadyStatus(typeCommande: string, statutCommande: string) {
@@ -158,6 +174,7 @@ export function prepareCommandeForSave(draft: CommandeDraft, previous?: Commande
   nextStatut = syncFacturationToStatut(nextStatut, draft.etatFacturation);
 
   const nextDateCommande = cleanOptionalDate(draft.dateCommande) ?? (hasIdentity ? formatAsDateInput(now) : null);
+  const keepsFabricationOrder = previous?.statutCommande === FABRICATION_STATUS && nextStatut === FABRICATION_STATUS;
   const hasTrackedChange =
     !previous ||
     previous.statutCommande !== nextStatut ||
@@ -170,6 +187,7 @@ export function prepareCommandeForSave(draft: CommandeDraft, previous?: Commande
     typeCommande: draft.typeCommande,
     statutCommande: nextStatut,
     dateCommande: nextDateCommande,
+    ordreFabrication: keepsFabricationOrder ? previous?.ordreFabrication ?? null : null,
     datePosePrevue: cleanOptionalDate(draft.datePosePrevue),
     datePoseFin: cleanOptionalDate(draft.datePoseFin),
     dateSavPrevue: cleanOptionalDate(draft.dateSavPrevue),
@@ -206,6 +224,10 @@ export function getAlertInfo(commande: Commande, now = new Date()): AlertInfo {
 
   if (commande.statutCommande === "SAV à prévoir") {
     return { label: "SAV à prévoir", tone: "orange", priority: 92 };
+  }
+
+  if (commande.statutCommande === "SAV prévu") {
+    return { label: "SAV prévu", tone: "mint", priority: 72 };
   }
 
   if (commande.statutCommande === "À facturer") {
@@ -250,7 +272,81 @@ export function isArchiveCommande(commande: Commande) {
 }
 
 export function isSavCommande(commande: Commande) {
-  return commande.typeCommande === "SAV" || commande.statutCommande === "SAV à prévoir";
+  return commande.typeCommande === "SAV" || commande.statutCommande === "SAV à prévoir" || commande.statutCommande === "SAV prévu";
+}
+
+export function isPlanningHistoryCommande(commande: Commande) {
+  return PLANNING_HISTORY_STATUSES.has(commande.statutCommande) || PLANNING_HISTORY_BILLING_STATES.has(commande.etatFacturation);
+}
+
+export function isFabricationCommande(commande: Commande) {
+  return commande.statutCommande === FABRICATION_STATUS;
+}
+
+export function hasManualFabricationOrder(commande: Commande) {
+  return typeof commande.ordreFabrication === "number" && Number.isFinite(commande.ordreFabrication);
+}
+
+export function getAutomaticFabricationOrderValue(commande: Commande) {
+  return getDateOrderValue(commande.dateCommande);
+}
+
+export function getFabricationOrderValue(commande: Commande) {
+  return hasManualFabricationOrder(commande) ? commande.ordreFabrication ?? Number.MAX_SAFE_INTEGER : getAutomaticFabricationOrderValue(commande);
+}
+
+export function sortFabricationCommandes(commandes: Commande[]) {
+  return [...commandes].sort((left, right) => {
+    const orderDifference = getFabricationOrderValue(left) - getFabricationOrderValue(right);
+    if (orderDifference !== 0) {
+      return orderDifference;
+    }
+
+    const dateDifference = getAutomaticFabricationOrderValue(left) - getAutomaticFabricationOrderValue(right);
+    if (dateDifference !== 0) {
+      return dateDifference;
+    }
+
+    return getStableCommandeLabel(left).localeCompare(getStableCommandeLabel(right), "fr-FR");
+  });
+}
+
+export function getManualFabricationOrderValue(commandes: Commande[], targetIndex: number) {
+  const previous = commandes[targetIndex - 1];
+  const next = commandes[targetIndex + 1];
+  const previousValue = previous ? getFabricationOrderValue(previous) : null;
+  const nextValue = next ? getFabricationOrderValue(next) : null;
+
+  if (previousValue !== null && nextValue !== null) {
+    if (nextValue - previousValue > 1) {
+      return previousValue + (nextValue - previousValue) / 2;
+    }
+
+    return null;
+  }
+
+  if (previousValue !== null) {
+    return previousValue + FABRICATION_ORDER_STEP;
+  }
+
+  if (nextValue !== null) {
+    return nextValue - FABRICATION_ORDER_STEP;
+  }
+
+  return getAutomaticFabricationOrderValue(commandes[targetIndex]);
+}
+
+export function createSequentialFabricationOrderUpdates(commandes: Commande[]): FabricationOrderUpdate[] {
+  const firstOrderValue = commandes.reduce(
+    (currentMin, commande) => Math.min(currentMin, getAutomaticFabricationOrderValue(commande)),
+    Number.MAX_SAFE_INTEGER
+  );
+  const baseOrderValue = firstOrderValue === Number.MAX_SAFE_INTEGER ? Date.now() : firstOrderValue;
+
+  return commandes.map((commande, index) => ({
+    id: commande.id,
+    ordreFabrication: baseOrderValue + index * FABRICATION_ORDER_STEP
+  }));
 }
 
 export function formatDate(value: string | null | undefined, withTime = false) {
@@ -277,6 +373,35 @@ export function formatShortDate(value: Date) {
     day: "2-digit",
     month: "2-digit"
   }).format(value);
+}
+
+function getIsoWeekNumber(value: Date) {
+  const target = new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()));
+  const dayNumber = target.getUTCDay() || 7;
+  target.setUTCDate(target.getUTCDate() + 4 - dayNumber);
+  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+
+  return Math.ceil(((target.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
+}
+
+export function formatWeekTitle(weekDays: Date[]) {
+  const weekStart = weekDays[0];
+  const weekEnd = weekDays[6];
+  const dayMonthFormatter = new Intl.DateTimeFormat("fr-FR", {
+    day: "numeric",
+    month: "long"
+  });
+  const dayMonthYearFormatter = new Intl.DateTimeFormat("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  });
+  const startLabel =
+    weekStart.getFullYear() === weekEnd.getFullYear()
+      ? dayMonthFormatter.format(weekStart)
+      : dayMonthYearFormatter.format(weekStart);
+
+  return `Semaine ${getIsoWeekNumber(weekStart)} du ${startLabel} au ${dayMonthYearFormatter.format(weekEnd)}`;
 }
 
 export function matchesSearch(commande: Commande, rawQuery: string) {
@@ -352,6 +477,23 @@ export function getInterventionStart(commande: Commande) {
 
 export function getInterventionEnd(commande: Commande) {
   return commande.datePoseFin || getInterventionStart(commande);
+}
+
+export function hasPlanningEvent(commande: Commande) {
+  return Boolean(toDate(getInterventionStart(commande)) && toDate(getInterventionEnd(commande)));
+}
+
+export function getPlanningEventState(commande: Commande, now = new Date()): PlanningEventState {
+  if (isPlanningHistoryCommande(commande)) {
+    return "kept";
+  }
+
+  const end = toDate(getInterventionEnd(commande));
+  if (end && startOfDay(end) < startOfDay(now)) {
+    return "past";
+  }
+
+  return "upcoming";
 }
 
 export function getWeekDays(anchor = new Date()) {
@@ -447,7 +589,7 @@ export function createSeedCommandes(): Commande[] {
       numeroDevis: "DV-23884",
       client: "Mairie de Blaringhem",
       typeCommande: "SAV",
-      statutCommande: "SAV à prévoir",
+      statutCommande: "SAV prévu",
       dateCommande: withOffset(-20),
       datePosePrevue: "",
       datePoseFin: "",

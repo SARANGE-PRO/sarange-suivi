@@ -105,7 +105,7 @@ function MobileCard({
     <article className="commande-card">
       <div className="commande-card__top">
         <div>
-          <p className="commande-card__devis">{commande.numeroDevis || "Sans devis"}</p>
+          {commande.numeroDevis ? <p className="commande-card__devis">{commande.numeroDevis}</p> : null}
           <h3>{commande.client}</h3>
         </div>
         <AlertBadge commande={commande} />
@@ -253,7 +253,7 @@ export function CommandesTable({ items, onEdit, view }: CommandesTableProps) {
                 <tr key={commande.id}>
                   <td>
                     <div className="table-primary">
-                      <strong>{commande.numeroDevis || "Sans devis"}</strong>
+                      {commande.numeroDevis ? <strong>{commande.numeroDevis}</strong> : null}
                       <span>{commande.client}</span>
                       {view === "bureau" ? <small>Commande : {formatDate(commande.dateCommande)}</small> : null}
                       {view === "bureau" && daysSince !== null ? <small>{daysSince} jours depuis commande</small> : null}
