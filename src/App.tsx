@@ -898,7 +898,21 @@ function TvPage({
       <header className="tv-topbar">
         <div>
           <p className="eyebrow">Planning Sarange</p>
-          <h2>{formatWeekTitle(weekDays)}</h2>
+          <h2>
+            {(() => {
+              const title = formatWeekTitle(weekDays);
+              const match = title.match(/^(Semaine \d+)(.*)$/);
+              if (match) {
+                return (
+                  <>
+                    <span style={{ color: "var(--orange)" }}>{match[1]}</span>
+                    {match[2]}
+                  </>
+                );
+              }
+              return title;
+            })()}
+          </h2>
         </div>
         <TvClock />
         <div className="tv-actions">
