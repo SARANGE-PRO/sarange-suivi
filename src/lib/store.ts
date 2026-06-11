@@ -47,6 +47,7 @@ interface CommandesStore {
   delete(commande: Commande): Promise<void>;
   restoreFromTrash(id: string): Promise<void>;
   deleteFromTrash(id: string): Promise<void>;
+  importBackup(commandes: Commande[]): Promise<void>;
 }
 
 const STORAGE_KEY = "sarange-commandes";
@@ -342,6 +343,10 @@ class LocalCommandesStore implements CommandesStore {
     trashStore.remove(id);
   }
 
+  async importBackup(commandes: Commande[]) {
+    this.persist(commandes);
+  }
+
   private persist(commandes: Commande[]) {
     this.snapshot = sortSnapshot(commandes);
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(this.snapshot));
@@ -506,6 +511,22 @@ class FirebaseCommandesStore implements CommandesStore {
 
   async deleteFromTrash(id: string) {
     trashStore.remove(id);
+  }
+
+  async importBackup(commandes: Commande[]) {
+    const chunks: Commande[][] = [];
+    for (let i = 0; i < commandes.length; i += 400) {
+      chunks.push(commandes.slice(i, i + 400));
+    }
+
+    for (const chunk of chunks) {
+      const batch = writeBatch(this.db);
+      chunk.forEach((commande) => {
+        const docRef = doc(this.db, COLLECTION_NAME, commande.id);
+        batch.set(docRef, commande);
+      });
+      await batch.commit();
+    }
   }
 
   private emit() {

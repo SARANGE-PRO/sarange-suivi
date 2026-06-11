@@ -1,4 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&display=swap");
 
 :root {
   color-scheme: light;
@@ -1070,8 +1071,53 @@ textarea:focus {
 }
 
 .tv-topbar {
-  align-items: start;
+  align-items: center;
   flex-wrap: wrap;
+}
+
+/* =====================================================================
+   CODE CSS DE L'HORLOGE
+   ===================================================================== */
+.app-clock {
+  font-family: 'JetBrains Mono', monospace;
+  background: rgba(15, 23, 42, 0.05);
+  padding: 0.8rem 1.2rem;
+  border-radius: 8px;
+  border-left: 4px solid var(--mint-soft);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+:root[data-theme="dark"] .app-clock {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.app-clock__time {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+.app-clock__dots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.app-clock__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.app-clock__dot--active {
+  background: var(--orange);
+  box-shadow: 0 0 8px var(--orange-soft);
 }
 
 .tv-actions {
@@ -1276,21 +1322,36 @@ textarea:focus {
 .calendar-event--pose {
   border-left-color: #2563eb;
 }
+.calendar-event--pose .calendar-event__kind {
+  color: #2563eb;
+}
 
 .calendar-event--livraison {
   border-left-color: #16a34a;
+}
+.calendar-event--livraison .calendar-event__kind {
+  color: #16a34a;
 }
 
 .calendar-event--enlevement {
   border-left-color: #f97316;
 }
+.calendar-event--enlevement .calendar-event__kind {
+  color: #f97316;
+}
 
 .calendar-event--sav {
   border-left-color: #dc2626;
 }
+.calendar-event--sav .calendar-event__kind {
+  color: #dc2626;
+}
 
 .calendar-event--autre {
   border-left-color: #64748b;
+}
+.calendar-event--autre .calendar-event__kind {
+  color: #64748b;
 }
 
 @media (max-width: 1100px) {
@@ -1418,4 +1479,77 @@ textarea:focus {
   .modal-actions__main .primary-button {
     flex: 1;
   }
+}
+
+/* =====================================================================
+   RESPONSIVE MOBILE POUR LE PLANNING TV
+   ===================================================================== */
+@media (max-width: 800px) {
+  .tv-topbar {
+    text-align: center;
+  }
+
+  .tv-actions {
+    justify-content: center;
+  }
+
+  .calendar-legend {
+    justify-content: center;
+  }
+
+  .week-calendar {
+    grid-template-columns: 1fr !important;
+    overflow-x: visible;
+  }
+
+  .calendar-day {
+    min-height: auto;
+  }
+}
+
+/* =====================================================================
+   BOUTONS DE SAUVEGARDE ET RESTAURATION DANS LA SIDEBAR
+   ===================================================================== */
+.sidebar-backup-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.sidebar-backup-row .nav-link--trash {
+  margin-top: 0;
+  flex: 1;
+}
+
+.sidebar-backup-btn {
+  width: 2.8rem;
+  height: 2.8rem;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.backup-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-soft);
+  cursor: pointer;
+  user-select: none;
+  margin-top: 0.6rem;
+  padding: 0 0.5rem;
+}
+
+.backup-toggle-label input[type="checkbox"] {
+  width: 1.15rem;
+  height: 1.15rem;
+  padding: 0;
+  margin: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
 }

@@ -6,6 +6,7 @@ import {
   ArrowRight,
   ArrowUp,
   CalendarDays,
+  Download,
   LogIn,
   LogOut,
   Menu,
@@ -16,6 +17,7 @@ import {
   SidebarClose,
   Sun,
   Trash2,
+  Upload,
 } from "lucide-react";
 import { CommandeModal } from "./components/CommandeModal";
 import { CommandesTable } from "./components/CommandesTable";
@@ -115,7 +117,9 @@ function ShellLayout({
   theme,
   onToggleTheme,
   onSignOut,
-  onOpenCreate
+  onOpenCreate,
+  isBackupReminderEnabled,
+  onToggleBackupReminder
 }: {
   children: ReactNode;
   commandes: Commande[];
@@ -125,6 +129,8 @@ function ShellLayout({
   onToggleTheme: () => void;
   onSignOut: () => void;
   onOpenCreate: () => void;
+  isBackupReminderEnabled: boolean;
+  onToggleBackupReminder: (enabled: boolean) => void;
 }) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     return window.localStorage.getItem("sarange-sidebar-collapsed") === "true";
@@ -142,6 +148,66 @@ function ShellLayout({
     if (window.matchMedia("(max-width: 1100px)").matches) {
       setIsSidebarCollapsed(true);
     }
+  }
+
+  function handleBackup() {
+    try {
+      const data = store.getSnapshot();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const dateStr = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `backup-sarange-${dateStr}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      window.alert("Impossible d'exporter les données : " + (error instanceof Error ? error.message : "Erreur"));
+    }
+  }
+
+  function handleRestore() {
+    const confirmed = window.confirm(
+      "Attention : restaurer les données va écraser les données actuelles (locales ou cloud) avec le contenu du fichier sélectionné. Souhaitez-vous continuer ?"
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = async (event) => {
+      const file = (event.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const content = e.target?.result;
+          if (typeof content !== "string") {
+            throw new Error("Contenu de fichier invalide");
+          }
+
+          const parsed = JSON.parse(content);
+          if (!Array.isArray(parsed)) {
+            throw new Error("Le fichier de sauvegarde doit contenir une liste de commandes");
+          }
+
+          const isValid = parsed.every((item) => typeof item === "object" && item !== null && "id" in item);
+          if (!isValid) {
+            throw new Error("Le format du fichier est incorrect (champs obligatoires manquants)");
+          }
+
+          await store.importBackup(parsed as Commande[]);
+          window.alert("Données restaurées avec succès !");
+        } catch (error) {
+          window.alert("Erreur lors de l'import : " + (error instanceof Error ? error.message : "Fichier invalide"));
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
   }
 
   return (
@@ -213,13 +279,41 @@ function ShellLayout({
               Déconnexion
             </button>
           ) : null}
-          <NavLink
-            to={TRASH_NAV_ITEM.to}
-            onClick={closeSidebarOnMobile}
-            className={({ isActive }) => (isActive ? "nav-link nav-link--active nav-link--trash" : "nav-link nav-link--trash")}
-          >
-            {TRASH_NAV_ITEM.label}
-          </NavLink>
+          <div className="sidebar-backup-row">
+            <NavLink
+              to={TRASH_NAV_ITEM.to}
+              onClick={closeSidebarOnMobile}
+              className={({ isActive }) => (isActive ? "nav-link nav-link--active nav-link--trash" : "nav-link nav-link--trash")}
+            >
+              {TRASH_NAV_ITEM.label}
+            </NavLink>
+            <button
+              type="button"
+              className="ghost-button sidebar-backup-btn"
+              onClick={handleBackup}
+              title="Sauvegarder les données (export JSON)"
+              aria-label="Sauvegarder les données"
+            >
+              <Download size={18} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="ghost-button sidebar-backup-btn"
+              onClick={handleRestore}
+              title="Restaurer les données (import JSON)"
+              aria-label="Restaurer les données"
+            >
+              <Upload size={18} aria-hidden="true" />
+            </button>
+          </div>
+          <label className="backup-toggle-label" title="Rappel automatique de sauvegarde le lundi">
+            <input
+              type="checkbox"
+              checked={isBackupReminderEnabled}
+              onChange={(e) => onToggleBackupReminder(e.target.checked)}
+            />
+            Rappel sauvegarde le lundi
+          </label>
         </div>
       </aside>
 
@@ -720,6 +814,50 @@ function CalendarEvent({ commande }: { commande: Commande }) {
   );
 }
 
+const INTERVENTION_KIND_ORDER: Record<string, number> = {
+  pose: 1,
+  livraison: 2,
+  enlevement: 3,
+  sav: 4,
+  autre: 5
+};
+
+function TvClock() {
+  const [time, setTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const hh = time.getHours().toString().padStart(2, '0');
+  const mm = time.getMinutes().toString().padStart(2, '0');
+  const s = time.getSeconds();
+
+  const activeDotsCount = Math.floor(s / 10) + 1;
+
+  return (
+    <div className="app-clock" aria-label="Horloge">
+      <div className="app-clock__time">
+        <span className="app-clock__hh">{hh}</span>:<span className="app-clock__mm">{mm}</span>
+      </div>
+      <div className="app-clock__dots">
+        {Array.from({ length: 6 }).map((_, index) => {
+          const isActive = index + 1 <= activeDotsCount;
+          return (
+            <div
+              key={index}
+              className={`app-clock__dot ${isActive ? "app-clock__dot--active" : ""}`}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function TvPage({
   commandes,
   theme,
@@ -762,6 +900,7 @@ function TvPage({
           <p className="eyebrow">Planning Sarange</p>
           <h2>{formatWeekTitle(weekDays)}</h2>
         </div>
+        <TvClock />
         <div className="tv-actions">
           <button type="button" className="icon-button" onClick={() => changeWeek(-7)} title="Semaine précédente" aria-label="Semaine précédente">
             <ArrowLeft size={22} aria-hidden="true" />
@@ -790,7 +929,18 @@ function TvPage({
 
       <section className={hasTodayInWeek ? "week-calendar week-calendar--current" : "week-calendar"} style={weekCalendarStyle}>
         {weekDays.map((day) => {
-          const dayItems = items.filter((commande) => isCommandeOnDay(commande, day));
+          const dayItems = items
+            .filter((commande) => isCommandeOnDay(commande, day))
+            .sort((left, right) => {
+              const kindLeft = getInterventionKind(left);
+              const kindRight = getInterventionKind(right);
+              const orderLeft = INTERVENTION_KIND_ORDER[kindLeft] ?? 99;
+              const orderRight = INTERVENTION_KIND_ORDER[kindRight] ?? 99;
+              if (orderLeft !== orderRight) {
+                return orderLeft - orderRight;
+              }
+              return String(getInterventionStart(left)).localeCompare(String(getInterventionStart(right)));
+            });
           const isToday = isSameCalendarDay(day, today);
           const isPastWeekday = hasTodayInWeek && isBeforeCalendarDay(day, today);
           const dayClassName = [
@@ -831,6 +981,64 @@ function AppContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const { theme, toggleTheme } = useThemeMode();
+
+  const [isBackupReminderEnabled, setIsBackupReminderEnabled] = useState(() => {
+    return window.localStorage.getItem("sarange-backup-reminder-enabled") === "true";
+  });
+  const [showBackupPrompt, setShowBackupPrompt] = useState(false);
+
+  function handleToggleBackupReminder(enabled: boolean) {
+    setIsBackupReminderEnabled(enabled);
+    window.localStorage.setItem("sarange-backup-reminder-enabled", String(enabled));
+  }
+
+  // Get the Monday YYYY-MM-DD of the current week
+  function getMondayOfCurrentWeek(date = new Date()) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(d.setDate(diff));
+    return monday.toISOString().slice(0, 10);
+  }
+
+  useEffect(() => {
+    if (!isBackupReminderEnabled) {
+      return;
+    }
+
+    const currentWeekMonday = getMondayOfCurrentWeek();
+    const lastBackupWeek = window.localStorage.getItem("sarange-last-backup-week");
+
+    if (lastBackupWeek !== currentWeekMonday) {
+      setShowBackupPrompt(true);
+    }
+  }, [isBackupReminderEnabled]);
+
+  function handleExecuteBackup() {
+    try {
+      const data = store.getSnapshot();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const dateStr = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `backup-sarange-${dateStr}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      const currentWeekMonday = getMondayOfCurrentWeek();
+      window.localStorage.setItem("sarange-last-backup-week", currentWeekMonday);
+      setShowBackupPrompt(false);
+    } catch (error) {
+      window.alert("Impossible d'exporter les données : " + (error instanceof Error ? error.message : "Erreur"));
+    }
+  }
+
+  function handleDismissBackup() {
+    const currentWeekMonday = getMondayOfCurrentWeek();
+    window.localStorage.setItem("sarange-last-backup-week", currentWeekMonday);
+    setShowBackupPrompt(false);
+  }
 
   useEffect(() => {
     return store.subscribe((next) => {
@@ -967,7 +1175,7 @@ function AppContent() {
         <Route
           path="/"
           element={
-            <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal}>
+            <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal} isBackupReminderEnabled={isBackupReminderEnabled} onToggleBackupReminder={handleToggleBackupReminder}>
               <BureauPage commandes={commandes} onOpenCreate={openCreateModal} onOpenEdit={openEditModal} />
             </ShellLayout>
           }
@@ -975,7 +1183,7 @@ function AppContent() {
         <Route
           path="/statut/:status"
           element={
-            <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal}>
+            <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal} isBackupReminderEnabled={isBackupReminderEnabled} onToggleBackupReminder={handleToggleBackupReminder}>
               <StatusPage commandes={commandes} onOpenCreate={openCreateModal} onOpenEdit={openEditModal} />
             </ShellLayout>
           }
@@ -983,7 +1191,7 @@ function AppContent() {
         <Route
           path="/fabrication"
           element={
-            <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal}>
+            <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal} isBackupReminderEnabled={isBackupReminderEnabled} onToggleBackupReminder={handleToggleBackupReminder}>
               <FabricationPage
                 commandes={commandes}
                 onOpenCreate={openCreateModal}
@@ -996,7 +1204,7 @@ function AppContent() {
         <Route
           path="/sav"
           element={
-            <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal}>
+            <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal} isBackupReminderEnabled={isBackupReminderEnabled} onToggleBackupReminder={handleToggleBackupReminder}>
               <SavPage commandes={commandes} onOpenCreate={openCreateModal} onOpenEdit={openEditModal} />
             </ShellLayout>
           }
@@ -1004,7 +1212,7 @@ function AppContent() {
         <Route
           path="/facturation"
           element={
-            <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal}>
+            <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal} isBackupReminderEnabled={isBackupReminderEnabled} onToggleBackupReminder={handleToggleBackupReminder}>
               <FacturationPage commandes={commandes} onOpenCreate={openCreateModal} onOpenEdit={openEditModal} />
             </ShellLayout>
           }
@@ -1012,7 +1220,7 @@ function AppContent() {
         <Route
           path="/archives"
           element={
-            <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal}>
+            <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal} isBackupReminderEnabled={isBackupReminderEnabled} onToggleBackupReminder={handleToggleBackupReminder}>
               <ArchivesPage commandes={commandes} onOpenCreate={openCreateModal} onOpenEdit={openEditModal} />
             </ShellLayout>
           }
@@ -1020,7 +1228,7 @@ function AppContent() {
         <Route
           path="/corbeille"
           element={
-            <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal}>
+            <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal} isBackupReminderEnabled={isBackupReminderEnabled} onToggleBackupReminder={handleToggleBackupReminder}>
               <TrashPage trashItems={trashItems} onRestore={handleRestore} onDeleteForever={handleDeleteForever} />
             </ShellLayout>
           }
@@ -1037,6 +1245,28 @@ function AppContent() {
         onDelete={handleDeleteDraft}
         onSubmit={handleSave}
       />
+
+      {showBackupPrompt && (
+        <div className="modal-backdrop" style={{ zIndex: 100 }}>
+          <div className="modal-panel" style={{ maxWidth: "480px" }}>
+            <h2 style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              <Download size={24} style={{ color: "var(--orange)" }} />
+              Sauvegarde hebdomadaire
+            </h2>
+            <p style={{ marginTop: "0.8rem", color: "var(--text-soft)", lineHeight: "1.5" }}>
+              Une nouvelle semaine a commencé. Pour sécuriser vos dossiers, veuillez télécharger la sauvegarde hebdomadaire de sécurité en local.
+            </p>
+            <div className="modal-actions" style={{ marginTop: "1.5rem", justifyContent: "flex-end" }}>
+              <button type="button" className="ghost-button" onClick={handleDismissBackup}>
+                Plus tard
+              </button>
+              <button type="button" className="primary-button" onClick={handleExecuteBackup}>
+                Télécharger
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
