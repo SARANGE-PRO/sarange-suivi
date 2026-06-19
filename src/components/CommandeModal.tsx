@@ -58,6 +58,16 @@ export function CommandeModal({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (draft.datePosePrevue && draft.datePoseFin && draft.datePoseFin < draft.datePosePrevue) {
+      const confirmed = window.confirm(
+        "La date de fin de pose est antérieure à la date de pose / livraison / enlèvement. Enregistrer quand même ?"
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
     await onSubmit(draft);
   }
 
@@ -122,7 +132,7 @@ export function CommandeModal({
             </label>
 
             <label className="field">
-              <span>Date pose / livraison / enlèvement</span>
+              <span>Date métrage / pose / livraison / enlèvement</span>
               <input
                 type="date"
                 value={draft.datePosePrevue}

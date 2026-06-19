@@ -254,8 +254,24 @@ textarea:focus {
 }
 
 .sidebar-nav--compact .nav-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
   padding: 0.72rem 0.85rem;
   font-size: 0.9rem;
+}
+
+.nav-link__count {
+  flex: none;
+  min-width: 1.5rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(249, 115, 22, 0.16);
+  color: var(--orange);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-align: center;
 }
 
 .sidebar-title {
@@ -339,8 +355,21 @@ textarea:focus {
 
 .quick-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.55rem;
+}
+
+.stat-card--link {
+  display: block;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+
+.stat-card--link:hover {
+  opacity: 1;
+  transform: translateY(-1px);
+  border-color: rgba(249, 115, 22, 0.32);
 }
 
 .hero-panel {
@@ -1160,6 +1189,10 @@ textarea:focus {
   background: #dc2626;
 }
 
+.legend-dot--metrage {
+  background: #9333ea;
+}
+
 .week-calendar {
   display: grid;
   grid-template-columns: repeat(7, minmax(10rem, 1fr));
@@ -1352,6 +1385,13 @@ textarea:focus {
 }
 .calendar-event--autre .calendar-event__kind {
   color: #64748b;
+}
+
+.calendar-event--metrage {
+  border-left-color: #9333ea;
+}
+.calendar-event--metrage .calendar-event__kind {
+  color: #9333ea;
 }
 
 @media (max-width: 1100px) {
@@ -1552,4 +1592,91 @@ textarea:focus {
   border-radius: 6px;
   cursor: pointer;
   flex-shrink: 0;
+}
+
+/* Événement planning interactif (clic = édition, glisser = déplacer) */
+.calendar-event--interactive {
+  cursor: grab;
+}
+
+.calendar-event--interactive:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-soft);
+}
+
+.calendar-event--interactive:active {
+  cursor: grabbing;
+}
+
+.calendar-day--drop-target {
+  outline: 2px dashed var(--orange);
+  outline-offset: -4px;
+  background: linear-gradient(180deg, rgba(249, 115, 22, 0.1), transparent 60%);
+}
+
+/* Drag & drop des ordres de fabrication */
+.fabrication-item {
+  cursor: grab;
+}
+
+.fabrication-item--dragging {
+  opacity: 0.5;
+}
+
+.fabrication-item--drop-target {
+  outline: 2px dashed var(--orange);
+  outline-offset: 2px;
+}
+
+.fabrication-item__actions {
+  cursor: default;
+}
+
+/* Modal de rappels du jour */
+.reminder-section {
+  margin-top: 1.1rem;
+}
+
+.reminder-section__title {
+  margin: 0 0 0.5rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.reminder-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.reminder-list__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0.8rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.32);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+
+.reminder-list__item:hover {
+  transform: translateY(-1px);
+  border-color: rgba(249, 115, 22, 0.32);
+}
+
+.reminder-list__kind {
+  font-weight: 800;
+  color: var(--orange);
+}
+
+.reminder-list__item small {
+  color: var(--text-soft);
 }

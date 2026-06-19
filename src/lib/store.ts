@@ -56,6 +56,7 @@ const TRASH_STORAGE_KEY = "sarange-commandes-trash";
 const TRASH_CHANNEL_KEY = "sarange-commandes-trash-sync";
 const TRASH_RETENTION_DAYS = 30;
 const COLLECTION_NAME = "commandes";
+const TRASH_COLLECTION_NAME = "commandes_corbeille";
 
 const firebaseConfig: FirebaseOptions = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -217,6 +218,79 @@ class LocalTrashStore {
 }
 
 const trashStore = new LocalTrashStore();
+
+class FirebaseTrashStore {
+  private snapshot: TrashItem[] = [];
+  private listeners = new Set<(items: TrashItem[]) => void>();
+  private unsubscribe: Unsubscribe | null = null;
+
+  constructor(private db: Firestore) {}
+
+  start() {
+    this.unsubscribe?.();
+    const trashQuery = query(collection(this.db, TRASH_COLLECTION_NAME), orderBy("deletedAt", "desc"));
+
+    this.unsubscribe = onSnapshot(
+      trashQuery,
+      (snapshot) => {
+        const items = snapshot.docs.map((snapshotDoc) => snapshotDoc.data() as TrashItem);
+        const valid = removeExpiredTrash(items);
+
+        // Purge côté serveur des dossiers expirés (> 30 jours).
+        items
+          .filter((item) => !valid.includes(item))
+          .forEach((item) => {
+            void deleteDoc(doc(this.db, TRASH_COLLECTION_NAME, item.commande.id)).catch(() => undefined);
+          });
+
+        this.snapshot = sortTrashSnapshot(valid);
+        this.emit();
+      },
+      (error) => {
+        console.error("Erreur corbeille Firestore:", error);
+      }
+    );
+  }
+
+  stop() {
+    this.unsubscribe?.();
+    this.unsubscribe = null;
+    this.snapshot = [];
+    this.emit();
+  }
+
+  getSnapshot() {
+    return this.snapshot;
+  }
+
+  subscribe(listener: (items: TrashItem[]) => void) {
+    this.listeners.add(listener);
+    listener(this.snapshot);
+
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  async add(commande: Commande) {
+    const deletedAt = new Date();
+    const item: TrashItem = {
+      commande,
+      deletedAt: deletedAt.toISOString(),
+      expiresAt: getTrashExpiry(deletedAt)
+    };
+
+    await setDoc(doc(this.db, TRASH_COLLECTION_NAME, commande.id), item);
+  }
+
+  async remove(id: string) {
+    await deleteDoc(doc(this.db, TRASH_COLLECTION_NAME, id));
+  }
+
+  private emit() {
+    this.listeners.forEach((listener) => listener(this.snapshot));
+  }
+}
 
 function readLocalSnapshot() {
   const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -381,6 +455,7 @@ class FirebaseCommandesStore implements CommandesStore {
   private userListeners = new Set<(user: AppUser | null) => void>();
   private db: Firestore;
   private auth: Auth;
+  private trash: FirebaseTrashStore;
   private unsubscribeCommandes: Unsubscribe | null = null;
 
   constructor() {
@@ -388,6 +463,7 @@ class FirebaseCommandesStore implements CommandesStore {
     this.db = createFirestore(app);
     this.auth = getAuth(app);
     this.auth.useDeviceLanguage();
+    this.trash = new FirebaseTrashStore(this.db);
 
     onAuthStateChanged(this.auth, (user) => {
       this.user = toAppUser(user);
@@ -397,9 +473,11 @@ class FirebaseCommandesStore implements CommandesStore {
 
       if (user) {
         this.listenCommandes();
+        this.trash.start();
         return;
       }
 
+      this.trash.stop();
       this.snapshot = [];
       this.emit();
     });
@@ -434,7 +512,7 @@ class FirebaseCommandesStore implements CommandesStore {
   }
 
   getTrashSnapshot() {
-    return trashStore.getSnapshot();
+    return this.trash.getSnapshot();
   }
 
   subscribeUser(listener: (user: AppUser | null) => void) {
@@ -456,7 +534,7 @@ class FirebaseCommandesStore implements CommandesStore {
   }
 
   subscribeTrash(listener: (items: TrashItem[]) => void) {
-    return trashStore.subscribe(listener);
+    return this.trash.subscribe(listener);
   }
 
   async signInWithGoogle() {
@@ -495,22 +573,29 @@ class FirebaseCommandesStore implements CommandesStore {
   }
 
   async delete(commande: Commande) {
+    // Best-effort : si la collection corbeille n'est pas encore autorisée par les
+    // règles Firestore déployées, on n'empêche pas la suppression du dossier.
+    try {
+      await this.trash.add(commande);
+    } catch (error) {
+      console.error("Corbeille cloud indisponible (règles Firestore non déployées ?) :", error);
+    }
+
     await deleteDoc(doc(this.db, COLLECTION_NAME, commande.id));
-    trashStore.add(commande);
   }
 
   async restoreFromTrash(id: string) {
-    const item = trashStore.getSnapshot().find((trashItem) => trashItem.commande.id === id);
+    const item = this.trash.getSnapshot().find((trashItem) => trashItem.commande.id === id);
     if (!item) {
       return;
     }
 
     await setDoc(doc(this.db, COLLECTION_NAME, id), item.commande, { merge: true });
-    trashStore.remove(id);
+    await this.trash.remove(id);
   }
 
   async deleteFromTrash(id: string) {
-    trashStore.remove(id);
+    await this.trash.remove(id);
   }
 
   async importBackup(commandes: Commande[]) {

@@ -5,6 +5,7 @@ import {
   ArrowDown,
   ArrowRight,
   ArrowUp,
+  Bell,
   CalendarDays,
   Download,
   LogIn,
@@ -25,9 +26,11 @@ import {
   STATUT_COMMANDE_OPTIONS,
   createSequentialFabricationOrderUpdates,
   createEmptyCommande,
+  formatAsDateInput,
   formatDate,
   formatShortDate,
   formatWeekTitle,
+  getAlertInfo,
   getInterventionEnd,
   getInterventionKind,
   getInterventionLabel,
@@ -45,6 +48,7 @@ import {
   isFacturationCommande,
   isSavCommande,
   matchesSearch,
+  parseDateInput,
   sortFabricationCommandes,
   toDraft
 } from "./lib/business";
@@ -99,14 +103,28 @@ function isBeforeCalendarDay(left: Date, right: Date) {
   return new Date(left.getFullYear(), left.getMonth(), left.getDate()).getTime() < new Date(right.getFullYear(), right.getMonth(), right.getDate()).getTime();
 }
 
-function StatCard({ label, value, detail }: { label: string; value: string; detail: string }) {
-  return (
-    <article className="stat-card">
+function startOfCalendarDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function StatCard({ label, value, detail, to }: { label: string; value: string; detail: string; to?: string }) {
+  const content = (
+    <>
       <span>{label}</span>
       <strong>{value}</strong>
       <small>{detail}</small>
-    </article>
+    </>
   );
+
+  if (to) {
+    return (
+      <Link to={to} className="stat-card stat-card--link">
+        {content}
+      </Link>
+    );
+  }
+
+  return <article className="stat-card">{content}</article>;
 }
 
 function ShellLayout({
@@ -139,6 +157,8 @@ function ShellLayout({
   const weekDays = getWeekDays();
   const plannedThisWeek = commandes.filter((commande) => hasPlanningEvent(commande) && isCommandeInWeek(commande, weekDays)).length;
   const savCount = commandes.filter(isSavCommande).length;
+  const lateCount = commandes.filter((commande) => getAlertInfo(commande).label === "Date dépassée").length;
+  const relanceCount = commandes.filter((commande) => getAlertInfo(commande).label === "À relancer").length;
 
   useEffect(() => {
     window.localStorage.setItem("sarange-sidebar-collapsed", String(isSidebarCollapsed));
@@ -156,7 +176,7 @@ function ShellLayout({
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      const dateStr = new Date().toISOString().slice(0, 10);
+      const dateStr = formatAsDateInput(new Date());
       link.href = url;
       link.download = `backup-sarange-${dateStr}.json`;
       link.click();
@@ -244,11 +264,15 @@ function ShellLayout({
         <div className="sidebar-statuses sidebar-content">
           <p className="sidebar-title">Par statut</p>
           <nav className="sidebar-nav sidebar-nav--compact">
-            {STATUT_COMMANDE_OPTIONS.filter((status) => status !== "Facturé" && status !== "Archivé").map((status) => (
-              <NavLink key={status} to={statusPath(status)} onClick={closeSidebarOnMobile} className={({ isActive }) => (isActive ? "nav-link nav-link--active" : "nav-link")}>
-                {status}
-              </NavLink>
-            ))}
+            {STATUT_COMMANDE_OPTIONS.filter((status) => status !== "Facturé" && status !== "Archivé").map((status) => {
+              const count = commandes.filter((commande) => commande.statutCommande === status).length;
+              return (
+                <NavLink key={status} to={statusPath(status)} onClick={closeSidebarOnMobile} className={({ isActive }) => (isActive ? "nav-link nav-link--active" : "nav-link")}>
+                  <span>{status}</span>
+                  {count > 0 ? <span className="nav-link__count">{count}</span> : null}
+                </NavLink>
+              );
+            })}
           </nav>
         </div>
 
@@ -319,9 +343,11 @@ function ShellLayout({
 
       <main className="app-main">
         <section className="quick-stats" aria-label="Synthèse discrète">
-          <StatCard label="Dossiers actifs" value={String(activeCount)} detail="Hors facturés et archivés" />
-          <StatCard label="Cette semaine" value={String(plannedThisWeek)} detail="Interventions Sarange" />
-          <StatCard label="SAV" value={String(savCount)} detail="Dossiers SAV en suivi" />
+          <StatCard label="Dossiers actifs" value={String(activeCount)} detail="Hors facturés et archivés" to="/" />
+          <StatCard label="Cette semaine" value={String(plannedThisWeek)} detail="Interventions Sarange" to="/tv" />
+          <StatCard label="En retard" value={String(lateCount)} detail="Dates d'intervention dépassées" to="/alerte/retard" />
+          <StatCard label="À relancer" value={String(relanceCount)} detail="Sans suite depuis +30 jours" to="/alerte/relance" />
+          <StatCard label="SAV" value={String(savCount)} detail="Dossiers SAV en suivi" to="/sav" />
         </section>
 
         {children}
@@ -477,6 +503,56 @@ function StatusPage({
   );
 }
 
+const ALERTE_CONFIG: Record<string, { alertLabel: string; title: string; description: string }> = {
+  retard: {
+    alertLabel: "Date dépassée",
+    title: "Dossiers en retard",
+    description: "Interventions dont la date de pose / livraison / enlèvement est dépassée."
+  },
+  relance: {
+    alertLabel: "À relancer",
+    title: "Dossiers à relancer",
+    description: "Commandes de plus de 30 jours qui ne sont pas encore prêtes."
+  }
+};
+
+function AlertePage({
+  commandes,
+  onOpenCreate,
+  onOpenEdit
+}: {
+  commandes: Commande[];
+  onOpenCreate: () => void;
+  onOpenEdit: (commande: Commande) => void;
+}) {
+  const { type = "" } = useParams();
+  const config = ALERTE_CONFIG[type];
+  const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
+
+  if (!config) {
+    return <Navigate to="/" replace />;
+  }
+
+  const items = commandes.filter(
+    (commande) => getAlertInfo(commande).label === config.alertLabel && matchesSearch(commande, deferredSearch)
+  );
+
+  return (
+    <>
+      <ViewToolbar
+        title={config.title}
+        description={config.description}
+        search={search}
+        onSearchChange={setSearch}
+        onOpenCreate={onOpenCreate}
+      />
+
+      <CommandesTable items={items} view="bureau" onEdit={onOpenEdit} />
+    </>
+  );
+}
+
 function SavPage({
   commandes,
   onOpenCreate,
@@ -545,6 +621,8 @@ function FabricationPage({
   onUpdateFabricationOrder: (updates: FabricationOrderUpdate[]) => Promise<void>;
 }) {
   const [isUpdatingOrder, setIsUpdatingOrder] = useState(false);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const items = sortFabricationCommandes(commandes.filter(isFabricationCommande));
   const manualOrderCount = items.filter(hasManualFabricationOrder).length;
 
@@ -583,6 +661,32 @@ function FabricationPage({
     await applyOrderUpdates(updates);
   }
 
+  async function reorderByDrop(sourceId: string, targetId: string) {
+    if (sourceId === targetId) {
+      return;
+    }
+
+    const sourceIndex = items.findIndex((commande) => commande.id === sourceId);
+    const targetIndex = items.findIndex((commande) => commande.id === targetId);
+
+    if (sourceIndex < 0 || targetIndex < 0) {
+      return;
+    }
+
+    const reorderedItems = [...items];
+    const [movedCommande] = reorderedItems.splice(sourceIndex, 1);
+    reorderedItems.splice(targetIndex, 0, movedCommande);
+
+    const newIndex = reorderedItems.findIndex((commande) => commande.id === movedCommande.id);
+    const nextOrderValue = getManualFabricationOrderValue(reorderedItems, newIndex);
+    const updates =
+      nextOrderValue === null
+        ? createSequentialFabricationOrderUpdates(reorderedItems)
+        : [{ id: movedCommande.id, ordreFabrication: nextOrderValue }];
+
+    await applyOrderUpdates(updates);
+  }
+
   async function resetManualOrder() {
     await applyOrderUpdates(
       items
@@ -603,7 +707,8 @@ function FabricationPage({
             <h3>Ordres fabrication</h3>
             <p>
               Les dossiers au statut Fabrication en cours sont triés par date de commande, du plus ancien au plus
-              récent. Les déplacements haut/bas posent une priorité manuelle, réinitialisable à tout moment.
+              récent. Glissez-déposez une carte (ou utilisez les flèches haut/bas) pour poser une priorité
+              manuelle, réinitialisable à tout moment.
             </p>
           </div>
           <div className="fabrication-toolbar">
@@ -632,9 +737,49 @@ function FabricationPage({
         <section className="fabrication-list" aria-label="Ordres de fabrication à traiter">
           {items.map((commande, index) => {
             const isManualOrder = hasManualFabricationOrder(commande);
+            const itemClassName = [
+              "fabrication-item",
+              isManualOrder ? "fabrication-item--manual" : "",
+              draggedId === commande.id ? "fabrication-item--dragging" : "",
+              draggedId && dropTargetId === commande.id && draggedId !== commande.id ? "fabrication-item--drop-target" : ""
+            ]
+              .filter(Boolean)
+              .join(" ");
 
             return (
-              <article key={commande.id} className={isManualOrder ? "fabrication-item fabrication-item--manual" : "fabrication-item"}>
+              <article
+                key={commande.id}
+                className={itemClassName}
+                draggable={!isUpdatingOrder}
+                onDragStart={(event) => {
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData("text/plain", commande.id);
+                  setDraggedId(commande.id);
+                }}
+                onDragOver={(event) => {
+                  if (!draggedId) {
+                    return;
+                  }
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                  if (dropTargetId !== commande.id) {
+                    setDropTargetId(commande.id);
+                  }
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const sourceId = event.dataTransfer.getData("text/plain") || draggedId;
+                  setDraggedId(null);
+                  setDropTargetId(null);
+                  if (sourceId) {
+                    void reorderByDrop(sourceId, commande.id);
+                  }
+                }}
+                onDragEnd={() => {
+                  setDraggedId(null);
+                  setDropTargetId(null);
+                }}
+              >
                 <div className="fabrication-rank" aria-label={`Priorité ${index + 1}`}>
                   {index + 1}
                 </div>
@@ -792,16 +937,51 @@ function TrashPage({
   );
 }
 
-function CalendarEvent({ commande }: { commande: Commande }) {
+function CalendarEvent({
+  commande,
+  onEdit,
+  onDragStart
+}: {
+  commande: Commande;
+  onEdit?: (commande: Commande) => void;
+  onDragStart?: (commande: Commande) => void;
+}) {
   const kind = getInterventionKind(commande);
   const start = getInterventionStart(commande);
   const end = getInterventionEnd(commande);
   const hasRange = start && end && start !== end;
   const suivi = commande.commentaireSuivi.trim();
   const planningState = getPlanningEventState(commande);
+  const isInteractive = Boolean(onEdit);
 
   return (
-    <article className={`calendar-event calendar-event--${kind} calendar-event--${planningState}`}>
+    <article
+      className={`calendar-event calendar-event--${kind} calendar-event--${planningState}${isInteractive ? " calendar-event--interactive" : ""}`}
+      draggable={isInteractive}
+      onClick={onEdit ? () => onEdit(commande) : undefined}
+      onDragStart={
+        onDragStart
+          ? (event) => {
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData("text/plain", commande.id);
+              onDragStart(commande);
+            }
+          : undefined
+      }
+      role={isInteractive ? "button" : undefined}
+      tabIndex={isInteractive ? 0 : undefined}
+      onKeyDown={
+        onEdit
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onEdit(commande);
+              }
+            }
+          : undefined
+      }
+      title={isInteractive ? "Cliquer pour modifier · glisser pour déplacer" : undefined}
+    >
       <span className="calendar-event__kind">{getInterventionLabel(commande)}</span>
       <strong>{commande.client || "Client non renseigné"}</strong>
       <div className="calendar-event__meta">
@@ -819,7 +999,8 @@ const INTERVENTION_KIND_ORDER: Record<string, number> = {
   livraison: 2,
   enlevement: 3,
   sav: 4,
-  autre: 5
+  autre: 5,
+  metrage: 6
 };
 
 function TvClock() {
@@ -861,13 +1042,19 @@ function TvClock() {
 function TvPage({
   commandes,
   theme,
-  onToggleTheme
+  onToggleTheme,
+  onOpenEdit,
+  onMoveIntervention
 }: {
   commandes: Commande[];
   theme: ThemeMode;
   onToggleTheme: () => void;
+  onOpenEdit: (commande: Commande) => void;
+  onMoveIntervention: (commande: Commande, targetDay: Date) => void;
 }) {
   const [weekAnchor, setWeekAnchor] = useState(new Date());
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dropDayKey, setDropDayKey] = useState<string | null>(null);
   const weekDays = getWeekDays(weekAnchor);
   const today = new Date();
   const hasTodayInWeek = weekDays.some((day) => isSameCalendarDay(day, today));
@@ -939,6 +1126,7 @@ function TvPage({
         <span className="legend-dot legend-dot--livraison" /> Livraison
         <span className="legend-dot legend-dot--enlevement" /> Enlèvement
         <span className="legend-dot legend-dot--sav" /> SAV
+        <span className="legend-dot legend-dot--metrage" /> Métrage
       </section>
 
       <section className={hasTodayInWeek ? "week-calendar week-calendar--current" : "week-calendar"} style={weekCalendarStyle}>
@@ -957,16 +1145,56 @@ function TvPage({
             });
           const isToday = isSameCalendarDay(day, today);
           const isPastWeekday = hasTodayInWeek && isBeforeCalendarDay(day, today);
+          const dayKey = day.toISOString();
+          const isDropTarget = draggedId !== null && dropDayKey === dayKey;
           const dayClassName = [
             "calendar-day",
             isToday ? "calendar-day--today" : "",
-            isPastWeekday ? "calendar-day--past-weekday" : ""
+            isPastWeekday ? "calendar-day--past-weekday" : "",
+            isDropTarget ? "calendar-day--drop-target" : ""
           ]
             .filter(Boolean)
             .join(" ");
 
           return (
-            <article key={day.toISOString()} className={dayClassName}>
+            <article
+              key={dayKey}
+              className={dayClassName}
+              onDragOver={
+                draggedId
+                  ? (event) => {
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = "move";
+                      if (dropDayKey !== dayKey) {
+                        setDropDayKey(dayKey);
+                      }
+                    }
+                  : undefined
+              }
+              onDragLeave={
+                draggedId
+                  ? () => {
+                      if (dropDayKey === dayKey) {
+                        setDropDayKey(null);
+                      }
+                    }
+                  : undefined
+              }
+              onDrop={
+                draggedId
+                  ? (event) => {
+                      event.preventDefault();
+                      const id = event.dataTransfer.getData("text/plain") || draggedId;
+                      const moved = items.find((commande) => commande.id === id);
+                      setDraggedId(null);
+                      setDropDayKey(null);
+                      if (moved && !isCommandeOnDay(moved, day)) {
+                        onMoveIntervention(moved, day);
+                      }
+                    }
+                  : undefined
+              }
+            >
               <header>
                 <span>
                   {formatShortDate(day)}
@@ -976,7 +1204,18 @@ function TvPage({
               </header>
 
               <div className="calendar-day__events">
-                {dayItems.length === 0 ? <p>Aucune intervention</p> : dayItems.map((commande) => <CalendarEvent key={`${commande.id}-${day.toISOString()}`} commande={commande} />)}
+                {dayItems.length === 0 ? (
+                  <p>Aucune intervention</p>
+                ) : (
+                  dayItems.map((commande) => (
+                    <CalendarEvent
+                      key={`${commande.id}-${dayKey}`}
+                      commande={commande}
+                      onEdit={onOpenEdit}
+                      onDragStart={(dragged) => setDraggedId(dragged.id)}
+                    />
+                  ))
+                )}
               </div>
             </article>
           );
@@ -1000,6 +1239,39 @@ function AppContent() {
     return window.localStorage.getItem("sarange-backup-reminder-enabled") === "true";
   });
   const [showBackupPrompt, setShowBackupPrompt] = useState(false);
+  const [showReminder, setShowReminder] = useState(false);
+  const [reminderHandled, setReminderHandled] = useState(false);
+
+  const today = new Date();
+  const posesAujourdhui = commandes.filter(
+    (commande) =>
+      hasPlanningEvent(commande) && isCommandeOnDay(commande, today) && getPlanningEventState(commande) !== "kept"
+  );
+  const dossiersARelancer = commandes.filter((commande) => getAlertInfo(commande).label === "À relancer");
+
+  useEffect(() => {
+    if (reminderHandled || commandes.length === 0) {
+      return;
+    }
+
+    const todayKey = formatAsDateInput(new Date());
+    if (window.localStorage.getItem("sarange-last-reminder-day") === todayKey) {
+      setReminderHandled(true);
+      return;
+    }
+
+    if (posesAujourdhui.length === 0 && dossiersARelancer.length === 0) {
+      return;
+    }
+
+    setShowReminder(true);
+    setReminderHandled(true);
+  }, [commandes, reminderHandled, posesAujourdhui.length, dossiersARelancer.length]);
+
+  function dismissReminder() {
+    window.localStorage.setItem("sarange-last-reminder-day", formatAsDateInput(new Date()));
+    setShowReminder(false);
+  }
 
   function handleToggleBackupReminder(enabled: boolean) {
     setIsBackupReminderEnabled(enabled);
@@ -1012,7 +1284,7 @@ function AppContent() {
     const day = d.getDay();
     const diff = d.getDate() - day + (day === 0 ? -6 : 1);
     const monday = new Date(d.setDate(diff));
-    return monday.toISOString().slice(0, 10);
+    return formatAsDateInput(monday);
   }
 
   useEffect(() => {
@@ -1034,7 +1306,7 @@ function AppContent() {
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      const dateStr = new Date().toISOString().slice(0, 10);
+      const dateStr = formatAsDateInput(new Date());
       link.href = url;
       link.download = `backup-sarange-${dateStr}.json`;
       link.click();
@@ -1103,6 +1375,35 @@ function AppContent() {
       window.alert(`Impossible d'enregistrer la commande : ${message}`);
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleMoveIntervention(commande: Commande, targetDay: Date) {
+    const nextDraft = toDraft(commande);
+    const targetStr = formatAsDateInput(targetDay);
+
+    if (isSavCommande(commande)) {
+      nextDraft.dateSavPrevue = targetStr;
+    } else {
+      const previousStart = parseDateInput(commande.datePosePrevue);
+      nextDraft.datePosePrevue = targetStr;
+
+      if (commande.datePoseFin && previousStart) {
+        const previousEnd = parseDateInput(commande.datePoseFin);
+        if (previousEnd) {
+          const deltaDays = Math.round(
+            (startOfCalendarDay(targetDay).getTime() - startOfCalendarDay(previousStart).getTime()) / 86_400_000
+          );
+          nextDraft.datePoseFin = formatAsDateInput(addDays(previousEnd, deltaDays));
+        }
+      }
+    }
+
+    try {
+      await store.upsert(nextDraft);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erreur inconnue";
+      window.alert(`Impossible de déplacer l'intervention : ${message}`);
     }
   }
 
@@ -1216,6 +1517,14 @@ function AppContent() {
           }
         />
         <Route
+          path="/alerte/:type"
+          element={
+            <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal} isBackupReminderEnabled={isBackupReminderEnabled} onToggleBackupReminder={handleToggleBackupReminder}>
+              <AlertePage commandes={commandes} onOpenCreate={openCreateModal} onOpenEdit={openEditModal} />
+            </ShellLayout>
+          }
+        />
+        <Route
           path="/sav"
           element={
             <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal} isBackupReminderEnabled={isBackupReminderEnabled} onToggleBackupReminder={handleToggleBackupReminder}>
@@ -1247,7 +1556,7 @@ function AppContent() {
             </ShellLayout>
           }
         />
-        <Route path="/tv" element={<TvPage commandes={commandes} theme={theme} onToggleTheme={toggleTheme} />} />
+        <Route path="/tv" element={<TvPage commandes={commandes} theme={theme} onToggleTheme={toggleTheme} onOpenEdit={openEditModal} onMoveIntervention={handleMoveIntervention} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
@@ -1276,6 +1585,60 @@ function AppContent() {
               </button>
               <button type="button" className="primary-button" onClick={handleExecuteBackup}>
                 Télécharger
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showReminder && !showBackupPrompt && (
+        <div className="modal-backdrop" style={{ zIndex: 90 }} role="presentation" onClick={dismissReminder}>
+          <div className="modal-panel reminder-panel" style={{ maxWidth: "520px" }} onClick={(event) => event.stopPropagation()}>
+            <h2 style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              <Bell size={24} style={{ color: "var(--orange)" }} />
+              Rappels du jour
+            </h2>
+
+            {posesAujourdhui.length > 0 ? (
+              <div className="reminder-section">
+                <p className="reminder-section__title">
+                  {posesAujourdhui.length} intervention{posesAujourdhui.length > 1 ? "s" : ""} aujourd'hui
+                </p>
+                <ul className="reminder-list">
+                  {posesAujourdhui.map((commande) => (
+                    <li key={commande.id}>
+                      <button
+                        type="button"
+                        className="reminder-list__item"
+                        onClick={() => {
+                          dismissReminder();
+                          openEditModal(commande);
+                        }}
+                      >
+                        <span className="reminder-list__kind">{getInterventionLabel(commande)}</span>
+                        <span>{commande.client || "Client non renseigné"}</span>
+                        {commande.numeroDevis ? <small>{commande.numeroDevis}</small> : null}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {dossiersARelancer.length > 0 ? (
+              <div className="reminder-section">
+                <p className="reminder-section__title">
+                  {dossiersARelancer.length} dossier{dossiersARelancer.length > 1 ? "s" : ""} à relancer
+                </p>
+                <Link to="/alerte/relance" className="ghost-button ghost-button--stretch" onClick={dismissReminder}>
+                  Voir les dossiers à relancer
+                </Link>
+              </div>
+            ) : null}
+
+            <div className="modal-actions" style={{ marginTop: "1.5rem", justifyContent: "flex-end" }}>
+              <button type="button" className="primary-button" onClick={dismissReminder}>
+                C'est noté
               </button>
             </div>
           </div>

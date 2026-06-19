@@ -36,7 +36,7 @@ export const ETAT_FACTURATION_OPTIONS = [
   "Bloqué"
 ] as const;
 
-export type InterventionKind = "pose" | "livraison" | "enlevement" | "sav" | "autre";
+export type InterventionKind = "metrage" | "pose" | "livraison" | "enlevement" | "sav" | "autre";
 export type PlanningEventState = "upcoming" | "past" | "kept";
 
 const TERMINAL_STATUSES = new Set(["Facturé", "Archivé"]);
@@ -73,8 +73,15 @@ function addDays(date: Date, days: number) {
   return next;
 }
 
-function formatAsDateInput(date: Date) {
-  return date.toISOString().slice(0, 10);
+export function formatAsDateInput(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function parseDateInput(value: string | null | undefined) {
+  return toDate(value);
 }
 
 function dayDifference(from: Date, to: Date) {
@@ -175,10 +182,6 @@ export function prepareCommandeForSave(draft: CommandeDraft, previous?: Commande
 
   const nextDateCommande = cleanOptionalDate(draft.dateCommande) ?? (hasIdentity ? formatAsDateInput(now) : null);
   const keepsFabricationOrder = previous?.statutCommande === FABRICATION_STATUS && nextStatut === FABRICATION_STATUS;
-  const hasTrackedChange =
-    !previous ||
-    previous.statutCommande !== nextStatut ||
-    previous.etatFacturation !== draft.etatFacturation;
 
   return {
     id: nextId,
@@ -191,7 +194,7 @@ export function prepareCommandeForSave(draft: CommandeDraft, previous?: Commande
     datePosePrevue: cleanOptionalDate(draft.datePosePrevue),
     datePoseFin: cleanOptionalDate(draft.datePoseFin),
     dateSavPrevue: cleanOptionalDate(draft.dateSavPrevue),
-    derniereMaj: hasTrackedChange ? now.toISOString() : previous?.derniereMaj ?? now.toISOString(),
+    derniereMaj: now.toISOString(),
     commentaireSuivi: cleanText(draft.commentaireSuivi),
     etatFacturation: draft.etatFacturation,
     numeroFacture: cleanText(draft.numeroFacture),
@@ -430,6 +433,10 @@ export function getInterventionKind(commande: Commande): InterventionKind {
   const normalizedType = stripAccents(commande.typeCommande);
   const normalizedStatus = stripAccents(commande.statutCommande);
 
+  if (normalizedStatus.includes("metrage")) {
+    return "metrage";
+  }
+
   if (normalizedType.includes("livraison") || normalizedStatus.includes("livrer")) {
     return "livraison";
   }
@@ -447,6 +454,10 @@ export function getInterventionKind(commande: Commande): InterventionKind {
 
 export function getInterventionLabel(commande: Commande) {
   const kind = getInterventionKind(commande);
+
+  if (kind === "metrage") {
+    return "Métrage";
+  }
 
   if (kind === "livraison") {
     return "Livraison";
