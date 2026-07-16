@@ -136,6 +136,16 @@ function cleanOptionalDate(value: string) {
   return value.trim() || null;
 }
 
+function cleanJoursExclus(joursExclus: string[], start: string | null, end: string | null) {
+  if (!start || !end || end <= start) {
+    return [];
+  }
+
+  // Les jours de début et de fin restent toujours posés : seuls les jours
+  // strictement à l'intérieur de la plage peuvent être exclus.
+  return [...new Set(joursExclus)].filter((day) => day > start && day < end).sort();
+}
+
 export function createEmptyCommande(): CommandeDraft {
   return {
     numeroDevis: "",
@@ -145,6 +155,7 @@ export function createEmptyCommande(): CommandeDraft {
     dateCommande: "",
     datePosePrevue: "",
     datePoseFin: "",
+    joursExclus: [],
     dateSavPrevue: "",
     commentaireSuivi: "",
     etatFacturation: ETAT_FACTURATION_OPTIONS[0],
@@ -164,6 +175,7 @@ export function toDraft(commande: Commande): CommandeDraft {
     dateCommande: commande.dateCommande?.slice(0, 10) ?? "",
     datePosePrevue: commande.datePosePrevue?.slice(0, 10) ?? "",
     datePoseFin: commande.datePoseFin?.slice(0, 10) ?? "",
+    joursExclus: commande.joursExclus ?? [],
     dateSavPrevue: commande.dateSavPrevue?.slice(0, 10) ?? "",
     commentaireSuivi: commande.commentaireSuivi,
     etatFacturation: commande.etatFacturation,
@@ -182,6 +194,8 @@ export function prepareCommandeForSave(draft: CommandeDraft, previous?: Commande
 
   const nextDateCommande = cleanOptionalDate(draft.dateCommande) ?? (hasIdentity ? formatAsDateInput(now) : null);
   const keepsFabricationOrder = previous?.statutCommande === FABRICATION_STATUS && nextStatut === FABRICATION_STATUS;
+  const nextDatePosePrevue = cleanOptionalDate(draft.datePosePrevue);
+  const nextDatePoseFin = cleanOptionalDate(draft.datePoseFin);
 
   return {
     id: nextId,
@@ -191,8 +205,9 @@ export function prepareCommandeForSave(draft: CommandeDraft, previous?: Commande
     statutCommande: nextStatut,
     dateCommande: nextDateCommande,
     ordreFabrication: keepsFabricationOrder ? previous?.ordreFabrication ?? null : null,
-    datePosePrevue: cleanOptionalDate(draft.datePosePrevue),
-    datePoseFin: cleanOptionalDate(draft.datePoseFin),
+    datePosePrevue: nextDatePosePrevue,
+    datePoseFin: nextDatePoseFin,
+    joursExclus: cleanJoursExclus(draft.joursExclus, nextDatePosePrevue, nextDatePoseFin),
     dateSavPrevue: cleanOptionalDate(draft.dateSavPrevue),
     derniereMaj: now.toISOString(),
     commentaireSuivi: cleanText(draft.commentaireSuivi),
@@ -490,6 +505,40 @@ export function getInterventionEnd(commande: Commande) {
   return commande.datePoseFin || getInterventionStart(commande);
 }
 
+export function isJourExclu(commande: Commande, day: Date) {
+  return (commande.joursExclus ?? []).includes(formatAsDateInput(day));
+}
+
+export function getInterventionDayCount(commande: Commande) {
+  const start = toDate(getInterventionStart(commande));
+  const end = toDate(getInterventionEnd(commande));
+
+  if (!start || !end) {
+    return 0;
+  }
+
+  const totalDays = dayDifference(start, end) + 1;
+  return Math.max(totalDays - (commande.joursExclus?.length ?? 0), 0);
+}
+
+const MAX_JOURS_SELECTION = 31;
+
+export function listRangeDays(startValue: string | null | undefined, endValue: string | null | undefined) {
+  const start = toDate(startValue);
+  const end = toDate(endValue);
+
+  if (!start || !end) {
+    return [];
+  }
+
+  const totalDays = dayDifference(start, end) + 1;
+  if (totalDays < 2 || totalDays > MAX_JOURS_SELECTION) {
+    return [];
+  }
+
+  return Array.from({ length: totalDays }, (_, index) => formatAsDateInput(addDays(start, index)));
+}
+
 export function hasPlanningEvent(commande: Commande) {
   return Boolean(toDate(getInterventionStart(commande)) && toDate(getInterventionEnd(commande)));
 }
@@ -516,17 +565,7 @@ export function getWeekDays(anchor = new Date()) {
 }
 
 export function isCommandeInWeek(commande: Commande, weekDays: Date[]) {
-  const start = toDate(getInterventionStart(commande));
-  const end = toDate(getInterventionEnd(commande));
-
-  if (!start || !end) {
-    return false;
-  }
-
-  const weekStart = startOfDay(weekDays[0]);
-  const weekEnd = startOfDay(weekDays[6]);
-
-  return startOfDay(start) <= weekEnd && startOfDay(end) >= weekStart;
+  return weekDays.some((day) => isCommandeOnDay(commande, day));
 }
 
 export function isCommandeOnDay(commande: Commande, day: Date) {
@@ -538,7 +577,11 @@ export function isCommandeOnDay(commande: Commande, day: Date) {
   }
 
   const target = startOfDay(day);
-  return target >= startOfDay(start) && target <= startOfDay(end);
+  if (target < startOfDay(start) || target > startOfDay(end)) {
+    return false;
+  }
+
+  return !isJourExclu(commande, target);
 }
 
 export function createSeedCommandes(): Commande[] {
@@ -559,6 +602,7 @@ export function createSeedCommandes(): Commande[] {
       dateCommande: withOffset(-12),
       datePosePrevue: withOffset(7),
       datePoseFin: withOffset(8),
+      joursExclus: [],
       dateSavPrevue: "",
       commentaireSuivi: "Validation atelier ok, attente vitrage.",
       etatFacturation: "À facturer",
@@ -574,6 +618,7 @@ export function createSeedCommandes(): Commande[] {
       dateCommande: withOffset(-38),
       datePosePrevue: withOffset(1),
       datePoseFin: "",
+      joursExclus: [],
       dateSavPrevue: "",
       commentaireSuivi: "Prévenir le client 24h avant départ camion.",
       etatFacturation: "À facturer",
@@ -589,6 +634,7 @@ export function createSeedCommandes(): Commande[] {
       dateCommande: withOffset(-45),
       datePosePrevue: withOffset(-3),
       datePoseFin: "",
+      joursExclus: [],
       dateSavPrevue: "",
       commentaireSuivi: "PV de réception signé.",
       etatFacturation: "À facturer",
@@ -604,6 +650,7 @@ export function createSeedCommandes(): Commande[] {
       dateCommande: withOffset(-20),
       datePosePrevue: "",
       datePoseFin: "",
+      joursExclus: [],
       dateSavPrevue: withOffset(4),
       commentaireSuivi: "Attente pièce fournisseur.",
       etatFacturation: "À facturer",
@@ -619,6 +666,7 @@ export function createSeedCommandes(): Commande[] {
       dateCommande: withOffset(-90),
       datePosePrevue: withOffset(-56),
       datePoseFin: "",
+      joursExclus: [],
       dateSavPrevue: "",
       commentaireSuivi: "Commande clôturée.",
       etatFacturation: "Payé",

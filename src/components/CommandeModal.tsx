@@ -3,6 +3,9 @@ import { Trash2 } from "lucide-react";
 import {
   createEmptyCommande,
   ETAT_FACTURATION_OPTIONS,
+  formatShortDate,
+  listRangeDays,
+  parseDateInput,
   STATUT_COMMANDE_OPTIONS,
   TYPE_COMMANDE_OPTIONS
 } from "../lib/business";
@@ -55,6 +58,17 @@ export function CommandeModal({
       [field]: value
     }));
   }
+
+  function toggleJourExclu(day: string) {
+    setDraft((current) => ({
+      ...current,
+      joursExclus: current.joursExclus.includes(day)
+        ? current.joursExclus.filter((item) => item !== day)
+        : [...current.joursExclus, day].sort()
+    }));
+  }
+
+  const rangeDays = listRangeDays(draft.datePosePrevue, draft.datePoseFin);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -148,6 +162,39 @@ export function CommandeModal({
                 onChange={(event) => updateField("datePoseFin", event.target.value)}
               />
             </label>
+
+            {rangeDays.length > 1 ? (
+              <div className="field field--full">
+                <span>Jours d'intervention sur la période</span>
+                <div className="day-chips" role="group" aria-label="Jours d'intervention sur la période">
+                  {rangeDays.map((day, index) => {
+                    const isBoundary = index === 0 || index === rangeDays.length - 1;
+                    const isExcluded = !isBoundary && draft.joursExclus.includes(day);
+                    const date = parseDateInput(day);
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        className={isExcluded ? "day-chip day-chip--off" : "day-chip"}
+                        onClick={isBoundary ? undefined : () => toggleJourExclu(day)}
+                        disabled={isBoundary}
+                        aria-pressed={!isExcluded}
+                        title={
+                          isBoundary
+                            ? "Jour de début ou de fin : modifiez les dates pour le changer"
+                            : isExcluded
+                              ? "Jour sans intervention — cliquer pour réactiver"
+                              : "Cliquer pour retirer ce jour du planning"
+                        }
+                      >
+                        {date ? formatShortDate(date) : day}
+                      </button>
+                    );
+                  })}
+                </div>
+                <small className="field-hint">Cliquez sur un jour pour le retirer du planning (jour non travaillé sur ce chantier).</small>
+              </div>
+            ) : null}
 
             <label className="field">
               <span>Date SAV prévue</span>

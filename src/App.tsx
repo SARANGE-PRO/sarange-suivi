@@ -31,6 +31,7 @@ import {
   formatShortDate,
   formatWeekTitle,
   getAlertInfo,
+  getInterventionDayCount,
   getInterventionEnd,
   getInterventionKind,
   getInterventionLabel,
@@ -950,6 +951,7 @@ function CalendarEvent({
   const start = getInterventionStart(commande);
   const end = getInterventionEnd(commande);
   const hasRange = start && end && start !== end;
+  const hasExclusions = (commande.joursExclus?.length ?? 0) > 0;
   const suivi = commande.commentaireSuivi.trim();
   const planningState = getPlanningEventState(commande);
   const isInteractive = Boolean(onEdit);
@@ -989,7 +991,13 @@ function CalendarEvent({
         <small>{commande.statutCommande}</small>
       </div>
       {suivi ? <small className="calendar-event__comment">{suivi}</small> : null}
-      {hasRange ? <small>Date de fin pose : {formatDate(end)}</small> : null}
+      {hasRange ? (
+        <small>
+          {hasExclusions
+            ? `${getInterventionDayCount(commande)} jours d'intervention jusqu'au ${formatDate(end)}`
+            : `Date de fin pose : ${formatDate(end)}`}
+        </small>
+      ) : null}
     </article>
   );
 }
@@ -1384,6 +1392,9 @@ function AppContent() {
 
     if (isSavCommande(commande)) {
       nextDraft.dateSavPrevue = targetStr;
+    } else if (commande.joursExclus?.includes(targetStr)) {
+      // Déposer sur un jour désactivé de la plage réactive ce jour au lieu de déplacer la pose.
+      nextDraft.joursExclus = nextDraft.joursExclus.filter((day) => day !== targetStr);
     } else {
       const previousStart = parseDateInput(commande.datePosePrevue);
       nextDraft.datePosePrevue = targetStr;
@@ -1395,6 +1406,10 @@ function AppContent() {
             (startOfCalendarDay(targetDay).getTime() - startOfCalendarDay(previousStart).getTime()) / 86_400_000
           );
           nextDraft.datePoseFin = formatAsDateInput(addDays(previousEnd, deltaDays));
+          nextDraft.joursExclus = nextDraft.joursExclus.flatMap((day) => {
+            const parsed = parseDateInput(day);
+            return parsed ? [formatAsDateInput(addDays(parsed, deltaDays))] : [];
+          });
         }
       }
     }

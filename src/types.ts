@@ -8,6 +8,7 @@ export interface Commande {
   ordreFabrication?: number | null;
   datePosePrevue: string | null;
   datePoseFin: string | null;
+  joursExclus?: string[];
   dateSavPrevue: string | null;
   derniereMaj: string | null;
   commentaireSuivi: string;
@@ -26,6 +27,7 @@ export interface CommandeDraft {
   dateCommande: string;
   datePosePrevue: string;
   datePoseFin: string;
+  joursExclus: string[];
   dateSavPrevue: string;
   commentaireSuivi: string;
   etatFacturation: string;
