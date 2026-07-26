@@ -8,6 +8,7 @@ import {
   Bell,
   CalendarDays,
   Download,
+  FileText,
   LogIn,
   LogOut,
   Menu,
@@ -22,6 +23,8 @@ import {
 } from "lucide-react";
 import { CommandeModal } from "./components/CommandeModal";
 import { CommandesTable } from "./components/CommandesTable";
+import { ImportDevisModal } from "./components/ImportDevisModal";
+import type { DevisSummary } from "./lib/quotes";
 import {
   STATUT_COMMANDE_OPTIONS,
   createSequentialFabricationOrderUpdates,
@@ -407,13 +410,15 @@ function ViewToolbar({
   description,
   search,
   onSearchChange,
-  onOpenCreate
+  onOpenCreate,
+  onOpenImport
 }: {
   title: string;
   description: string;
   search: string;
   onSearchChange: (value: string) => void;
   onOpenCreate: () => void;
+  onOpenImport: (() => void) | null;
 }) {
   return (
     <section className="view-section">
@@ -423,10 +428,22 @@ function ViewToolbar({
           <h3>{title}</h3>
           <p>{description}</p>
         </div>
-        <button type="button" className="primary-button" onClick={onOpenCreate}>
-          <Plus size={18} aria-hidden="true" />
-          Nouvelle commande
-        </button>
+        <div className="heading-actions">
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={onOpenImport ?? undefined}
+            disabled={!onOpenImport}
+            title={onOpenImport ? undefined : "Nécessite la connexion Firestore et un compte Google"}
+          >
+            <FileText size={18} aria-hidden="true" />
+            Importer depuis un devis
+          </button>
+          <button type="button" className="primary-button" onClick={onOpenCreate}>
+            <Plus size={18} aria-hidden="true" />
+            Nouvelle commande
+          </button>
+        </div>
       </div>
 
       <label className="search-field search-field--wide">
@@ -443,10 +460,12 @@ function ViewToolbar({
 function BureauPage({
   commandes,
   onOpenCreate,
+  onOpenImport,
   onOpenEdit
 }: {
   commandes: Commande[];
   onOpenCreate: () => void;
+  onOpenImport: (() => void) | null;
   onOpenEdit: (commande: Commande) => void;
 }) {
   const [search, setSearch] = useState("");
@@ -461,6 +480,7 @@ function BureauPage({
         search={search}
         onSearchChange={setSearch}
         onOpenCreate={onOpenCreate}
+        onOpenImport={onOpenImport}
       />
 
       <CommandesTable items={items} view="bureau" onEdit={onOpenEdit} />
@@ -471,10 +491,12 @@ function BureauPage({
 function StatusPage({
   commandes,
   onOpenCreate,
+  onOpenImport,
   onOpenEdit
 }: {
   commandes: Commande[];
   onOpenCreate: () => void;
+  onOpenImport: (() => void) | null;
   onOpenEdit: (commande: Commande) => void;
 }) {
   const { status = "" } = useParams();
@@ -497,6 +519,7 @@ function StatusPage({
         search={search}
         onSearchChange={setSearch}
         onOpenCreate={onOpenCreate}
+        onOpenImport={onOpenImport}
       />
 
       <CommandesTable items={items} view="bureau" onEdit={onOpenEdit} />
@@ -520,10 +543,12 @@ const ALERTE_CONFIG: Record<string, { alertLabel: string; title: string; descrip
 function AlertePage({
   commandes,
   onOpenCreate,
+  onOpenImport,
   onOpenEdit
 }: {
   commandes: Commande[];
   onOpenCreate: () => void;
+  onOpenImport: (() => void) | null;
   onOpenEdit: (commande: Commande) => void;
 }) {
   const { type = "" } = useParams();
@@ -547,6 +572,7 @@ function AlertePage({
         search={search}
         onSearchChange={setSearch}
         onOpenCreate={onOpenCreate}
+        onOpenImport={onOpenImport}
       />
 
       <CommandesTable items={items} view="bureau" onEdit={onOpenEdit} />
@@ -557,10 +583,12 @@ function AlertePage({
 function SavPage({
   commandes,
   onOpenCreate,
+  onOpenImport,
   onOpenEdit
 }: {
   commandes: Commande[];
   onOpenCreate: () => void;
+  onOpenImport: (() => void) | null;
   onOpenEdit: (commande: Commande) => void;
 }) {
   const [search, setSearch] = useState("");
@@ -575,6 +603,7 @@ function SavPage({
         search={search}
         onSearchChange={setSearch}
         onOpenCreate={onOpenCreate}
+        onOpenImport={onOpenImport}
       />
 
       <CommandesTable items={items} view="sav" onEdit={onOpenEdit} />
@@ -585,10 +614,12 @@ function SavPage({
 function FacturationPage({
   commandes,
   onOpenCreate,
+  onOpenImport,
   onOpenEdit
 }: {
   commandes: Commande[];
   onOpenCreate: () => void;
+  onOpenImport: (() => void) | null;
   onOpenEdit: (commande: Commande) => void;
 }) {
   const [search, setSearch] = useState("");
@@ -603,6 +634,7 @@ function FacturationPage({
         search={search}
         onSearchChange={setSearch}
         onOpenCreate={onOpenCreate}
+        onOpenImport={onOpenImport}
       />
 
       <CommandesTable items={items} view="facturation" onEdit={onOpenEdit} />
@@ -840,10 +872,12 @@ function FabricationPage({
 function ArchivesPage({
   commandes,
   onOpenCreate,
+  onOpenImport,
   onOpenEdit
 }: {
   commandes: Commande[];
   onOpenCreate: () => void;
+  onOpenImport: (() => void) | null;
   onOpenEdit: (commande: Commande) => void;
 }) {
   const [search, setSearch] = useState("");
@@ -858,6 +892,7 @@ function ArchivesPage({
         search={search}
         onSearchChange={setSearch}
         onOpenCreate={onOpenCreate}
+        onOpenImport={onOpenImport}
       />
 
       <CommandesTable items={items} view="archives" onEdit={onOpenEdit} />
@@ -1239,6 +1274,7 @@ function AppContent() {
   const [user, setUser] = useState<AppUser | null>(store.getUser());
   const [draft, setDraft] = useState<CommandeDraft | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const { theme, toggleTheme } = useThemeMode();
@@ -1360,6 +1396,29 @@ function AppContent() {
 
   function openCreateModal() {
     setDraft(createEmptyCommande());
+    setIsModalOpen(true);
+  }
+
+  // Import optionnel depuis un devis (devis-sarange, même projet Firebase).
+  // Disponible uniquement en mode Firestore avec un compte connecté : la
+  // saisie manuelle reste le chemin par défaut.
+  const importDevisHandler =
+    store.mode === "firebase" && user !== null ? () => setIsImportOpen(true) : null;
+
+  function handleImportSelect(devis: DevisSummary) {
+    const infoLines = [
+      devis.adresse ? `Adresse : ${devis.adresse}` : null,
+      devis.clientPhone ? `Tél : ${devis.clientPhone}` : null
+    ].filter(Boolean);
+    setDraft({
+      ...createEmptyCommande(),
+      numeroDevis: devis.quoteNumber,
+      client: devis.clientName,
+      quoteId: devis.id,
+      clientId: devis.clientId,
+      commentaireSuivi: infoLines.join("\n")
+    });
+    setIsImportOpen(false);
     setIsModalOpen(true);
   }
 
@@ -1506,7 +1565,7 @@ function AppContent() {
           path="/"
           element={
             <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal} isBackupReminderEnabled={isBackupReminderEnabled} onToggleBackupReminder={handleToggleBackupReminder}>
-              <BureauPage commandes={commandes} onOpenCreate={openCreateModal} onOpenEdit={openEditModal} />
+              <BureauPage commandes={commandes} onOpenCreate={openCreateModal} onOpenImport={importDevisHandler} onOpenEdit={openEditModal} />
             </ShellLayout>
           }
         />
@@ -1514,7 +1573,7 @@ function AppContent() {
           path="/statut/:status"
           element={
             <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal} isBackupReminderEnabled={isBackupReminderEnabled} onToggleBackupReminder={handleToggleBackupReminder}>
-              <StatusPage commandes={commandes} onOpenCreate={openCreateModal} onOpenEdit={openEditModal} />
+              <StatusPage commandes={commandes} onOpenCreate={openCreateModal} onOpenImport={importDevisHandler} onOpenEdit={openEditModal} />
             </ShellLayout>
           }
         />
@@ -1535,7 +1594,7 @@ function AppContent() {
           path="/alerte/:type"
           element={
             <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal} isBackupReminderEnabled={isBackupReminderEnabled} onToggleBackupReminder={handleToggleBackupReminder}>
-              <AlertePage commandes={commandes} onOpenCreate={openCreateModal} onOpenEdit={openEditModal} />
+              <AlertePage commandes={commandes} onOpenCreate={openCreateModal} onOpenImport={importDevisHandler} onOpenEdit={openEditModal} />
             </ShellLayout>
           }
         />
@@ -1543,7 +1602,7 @@ function AppContent() {
           path="/sav"
           element={
             <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal} isBackupReminderEnabled={isBackupReminderEnabled} onToggleBackupReminder={handleToggleBackupReminder}>
-              <SavPage commandes={commandes} onOpenCreate={openCreateModal} onOpenEdit={openEditModal} />
+              <SavPage commandes={commandes} onOpenCreate={openCreateModal} onOpenImport={importDevisHandler} onOpenEdit={openEditModal} />
             </ShellLayout>
           }
         />
@@ -1551,7 +1610,7 @@ function AppContent() {
           path="/facturation"
           element={
             <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal} isBackupReminderEnabled={isBackupReminderEnabled} onToggleBackupReminder={handleToggleBackupReminder}>
-              <FacturationPage commandes={commandes} onOpenCreate={openCreateModal} onOpenEdit={openEditModal} />
+              <FacturationPage commandes={commandes} onOpenCreate={openCreateModal} onOpenImport={importDevisHandler} onOpenEdit={openEditModal} />
             </ShellLayout>
           }
         />
@@ -1559,7 +1618,7 @@ function AppContent() {
           path="/archives"
           element={
             <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal} isBackupReminderEnabled={isBackupReminderEnabled} onToggleBackupReminder={handleToggleBackupReminder}>
-              <ArchivesPage commandes={commandes} onOpenCreate={openCreateModal} onOpenEdit={openEditModal} />
+              <ArchivesPage commandes={commandes} onOpenCreate={openCreateModal} onOpenImport={importDevisHandler} onOpenEdit={openEditModal} />
             </ShellLayout>
           }
         />
@@ -1582,6 +1641,13 @@ function AppContent() {
         onClose={closeModal}
         onDelete={handleDeleteDraft}
         onSubmit={handleSave}
+      />
+
+      <ImportDevisModal
+        isOpen={isImportOpen}
+        user={user}
+        onClose={() => setIsImportOpen(false)}
+        onSelect={handleImportSelect}
       />
 
       {showBackupPrompt && (

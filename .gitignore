@@ -18,3 +18,5 @@ vite.config.d.ts
 firebase-debug.log
 
 brandsarange.html
+.vercel
+.env*

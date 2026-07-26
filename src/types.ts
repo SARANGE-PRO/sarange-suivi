@@ -2,6 +2,10 @@ export interface Commande {
   id: string;
   numeroDevis: string;
   client: string;
+  // Cles de jointure avec devis-sarange (renseignees par l'import depuis un
+  // devis ; null pour les commandes saisies a la main).
+  quoteId?: string | null;
+  clientId?: string | null;
   typeCommande: string;
   statutCommande: string;
   dateCommande: string | null;
@@ -22,6 +26,8 @@ export interface CommandeDraft {
   id?: string;
   numeroDevis: string;
   client: string;
+  quoteId?: string | null;
+  clientId?: string | null;
   typeCommande: string;
   statutCommande: string;
   dateCommande: string;

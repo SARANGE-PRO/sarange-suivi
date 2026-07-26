@@ -74,6 +74,6 @@ VITE_FIREBASE_APP_ID=1:123456789:web:abcdef
 
 ## Regles Firestore
 
-Les regles de depart sont dans [firebase/firestore.rules](firebase/firestore.rules).
+Le projet Firebase `sarange-pro` est partage avec devis-sarange et sarange-metrage. Les regles vivent dans un fichier unique, `firestore.rules` du depot `devis-sarange` — c'est le SEUL depot depuis lequel `firebase deploy --only firestore:rules` doit etre lance. Ce depot-ci ne contient volontairement ni `firebase.json` ni fichier de regles, pour rendre un deploiement accidentel impossible.
 
-Elles sont ouvertes pour le developpement local. Avant une mise en production, il faudra ajouter Firebase Auth et restreindre `read` / `write` aux utilisateurs autorises.
+Acces aux collections `commandes` et `commandes_corbeille` : compte Google du domaine `@sarange.fr`, email verifie.

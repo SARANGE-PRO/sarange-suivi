@@ -1716,3 +1716,132 @@ textarea:focus {
 .reminder-list__item small {
   color: var(--text-soft);
 }
+
+/* ---- Import depuis un devis ---- */
+
+.heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.devis-import__filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.1rem;
+}
+
+.devis-import__search {
+  flex: 1;
+  min-width: 220px;
+}
+
+.devis-import__toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.65rem;
+  font-size: 0.9rem;
+  color: var(--text-soft);
+  cursor: pointer;
+  user-select: none;
+}
+
+.devis-import__toggle input {
+  accent-color: var(--orange);
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.devis-import__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 52vh;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+
+.devis-import__row {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, auto) 1fr auto auto auto;
+  align-items: center;
+  gap: 0.9rem;
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-elevated);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.devis-import__row:hover,
+.devis-import__row:focus-visible {
+  border-color: var(--orange);
+  background: var(--orange-soft);
+  outline: none;
+}
+
+.devis-import__number {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.devis-import__client {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devis-import__date {
+  color: var(--text-soft);
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.devis-import__status {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: var(--slate-soft);
+  white-space: nowrap;
+}
+
+.devis-import__status--signed {
+  background: var(--green-soft);
+}
+
+.devis-import__status--refused,
+.devis-import__status--expired {
+  background: var(--red-soft);
+}
+
+.devis-import__status--sent,
+.devis-import__status--viewed {
+  background: var(--yellow-soft);
+}
+
+.devis-import__total {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .devis-import__row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .devis-import__date,
+  .devis-import__total {
+    display: none;
+  }
+}
