@@ -98,6 +98,11 @@ function getStableCommandeLabel(commande: Commande) {
   return `${commande.numeroDevis} ${commande.client} ${commande.id}`;
 }
 
+/** Statut « Prêt » adapté au type de commande (pose / livraison / enlèvement). */
+export function getReadyStatus(typeCommande: string): string {
+  return normalizeReadyStatus(typeCommande, "Prêt");
+}
+
 function normalizeReadyStatus(typeCommande: string, statutCommande: string) {
   if (statutCommande !== "Prêt") {
     return statutCommande;
@@ -172,6 +177,7 @@ export function toDraft(commande: Commande): CommandeDraft {
     client: commande.client,
     quoteId: commande.quoteId ?? null,
     clientId: commande.clientId ?? null,
+    chantierId: commande.chantierId ?? null,
     typeCommande: commande.typeCommande,
     statutCommande: commande.statutCommande,
     dateCommande: commande.dateCommande?.slice(0, 10) ?? "",
@@ -205,6 +211,7 @@ export function prepareCommandeForSave(draft: CommandeDraft, previous?: Commande
     client: cleanText(draft.client),
     quoteId: draft.quoteId ?? previous?.quoteId ?? null,
     clientId: draft.clientId ?? previous?.clientId ?? null,
+    chantierId: draft.chantierId ?? previous?.chantierId ?? null,
     typeCommande: draft.typeCommande,
     statutCommande: nextStatut,
     dateCommande: nextDateCommande,

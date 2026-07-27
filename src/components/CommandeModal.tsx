@@ -1,14 +1,16 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Trash2 } from "lucide-react";
+import { Factory, Trash2 } from "lucide-react";
 import {
   createEmptyCommande,
   ETAT_FACTURATION_OPTIONS,
   formatShortDate,
+  getReadyStatus,
   listRangeDays,
   parseDateInput,
   STATUT_COMMANDE_OPTIONS,
   TYPE_COMMANDE_OPTIONS
 } from "../lib/business";
+import { productionForCommande, useProduction } from "../lib/production";
 import type { CommandeDraft } from "../types";
 
 interface CommandeModalProps {
@@ -251,6 +253,11 @@ export function CommandeModal({
             </label>
           </div>
 
+          <ProductionSection
+            draft={draft}
+            onPatch={(patch) => setDraft((current) => ({ ...current, ...patch }))}
+          />
+
           <div className="info-banner">
             La sauvegarde applique automatiquement la date de commande, la dernière mise à jour, le renommage du
             statut prêt selon le type de commande et la synchronisation facturation vers suivi.
@@ -276,6 +283,107 @@ export function CommandeModal({
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+const READY_HIDDEN_STATUSES = new Set([
+  "Pose / livraison terminée",
+  "À facturer",
+  "Facturé",
+  "Archivé"
+]);
+
+/**
+ * Avancement de production atelier + liaison manuelle vers un chantier.
+ * Lecture seule des données atelier ; ne change JAMAIS un statut tout seul :
+ * quand tout est terminé, un bouton PROPOSE de passer la commande à « Prêt »,
+ * et c'est l'utilisateur qui clique (puis enregistre).
+ */
+function ProductionSection({
+  draft,
+  onPatch
+}: {
+  draft: CommandeDraft;
+  onPatch: (patch: Partial<CommandeDraft>) => void;
+}) {
+  const production = useProduction();
+
+  if (!production.ready || (production.chantiers.length === 0 && !draft.chantierId)) {
+    return null;
+  }
+
+  const chantier = productionForCommande(production, draft);
+  const done = chantier !== null && chantier.totalPieces > 0 && chantier.terminePieces >= chantier.totalPieces;
+  const readyStatus = getReadyStatus(draft.typeCommande);
+  const suggestReady = done && draft.statutCommande !== readyStatus && !draft.statutCommande.includes("Prêt") && !READY_HIDDEN_STATUSES.has(draft.statutCommande);
+
+  const clientKey = draft.client.trim().toLowerCase();
+  const sortedChantiers = [...production.chantiers].sort((left, right) => {
+    const leftMatch = clientKey && left.referenceClient.toLowerCase().includes(clientKey) ? 0 : 1;
+    const rightMatch = clientKey && right.referenceClient.toLowerCase().includes(clientKey) ? 0 : 1;
+    return leftMatch - rightMatch || left.referenceClient.localeCompare(right.referenceClient);
+  });
+
+  return (
+    <div className="prod-section">
+      <p className="prod-section__title">
+        <Factory size={16} aria-hidden="true" />
+        Production atelier
+      </p>
+
+      {chantier ? (
+        <>
+          <div className="prod-section__stats">
+            <strong>
+              {chantier.terminePieces}/{chantier.totalPieces} pièce{chantier.totalPieces > 1 ? "s" : ""} terminée{chantier.terminePieces > 1 ? "s" : ""}
+            </strong>
+            <span>({chantier.pct} %)</span>
+            {chantier.enCours > 0 ? <span>· {chantier.enCours} en cours</span> : null}
+            <span className="prod-section__ref">Dossier atelier : {chantier.referenceClient}</span>
+          </div>
+          <div className="prod-section__bar" role="presentation">
+            <div className="prod-section__bar-fill" style={{ width: `${chantier.pct}%` }} />
+          </div>
+          {chantier.alertes.length > 0 && (
+            <ul className="prod-section__alertes">
+              {chantier.alertes.map((alerte, index) => (
+                <li key={index}>
+                  <strong>{alerte.repere || "Sans repère"}</strong> — {alerte.motif}
+                </li>
+              ))}
+            </ul>
+          )}
+          {suggestReady && (
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => onPatch({ statutCommande: readyStatus })}
+            >
+              Production terminée — passer le statut à « {readyStatus} »
+            </button>
+          )}
+        </>
+      ) : (
+        <p className="prod-section__empty">
+          Aucun chantier atelier lié{draft.quoteId ? " (le n° de devis ne correspond à aucun dossier atelier)" : ""}.
+        </p>
+      )}
+
+      <label className="field">
+        <span>Chantier atelier lié (manuel)</span>
+        <select
+          value={draft.chantierId ?? ""}
+          onChange={(event) => onPatch({ chantierId: event.target.value || null })}
+        >
+          <option value="">— Automatique (par n° de devis) —</option>
+          {sortedChantiers.map((option) => (
+            <option key={option.chantierId} value={option.chantierId}>
+              {option.referenceClient} · {option.terminePieces}/{option.totalPieces}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   );
 }

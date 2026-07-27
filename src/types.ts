@@ -6,6 +6,9 @@ export interface Commande {
   // devis ; null pour les commandes saisies a la main).
   quoteId?: string | null;
   clientId?: string | null;
+  // Liaison manuelle vers un chantier atelier (prodoutil) quand la jointure
+  // automatique par quoteId est impossible (chantier cree par import PDF).
+  chantierId?: string | null;
   typeCommande: string;
   statutCommande: string;
   dateCommande: string | null;
@@ -28,6 +31,7 @@ export interface CommandeDraft {
   client: string;
   quoteId?: string | null;
   clientId?: string | null;
+  chantierId?: string | null;
   typeCommande: string;
   statutCommande: string;
   dateCommande: string;

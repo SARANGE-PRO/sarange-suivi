@@ -7,6 +7,11 @@ import {
   getInterventionStart
 } from "../lib/business";
 import type { Commande, TableView } from "../types";
+import {
+  productionForCommande,
+  useProduction,
+  type ProductionSnapshot
+} from "../lib/production";
 
 interface CommandesTableProps {
   items: Commande[];
@@ -27,6 +32,42 @@ interface ColumnDefinition {
 function AlertBadge({ commande }: { commande: Commande }) {
   const alert = getAlertInfo(commande);
   return <span className={`badge badge--${alert.tone}`}>{alert.label}</span>;
+}
+
+/**
+ * Avancement de production atelier (prodoutil), si la commande est liée à un
+ * chantier (liaison manuelle ou n° de devis). Rien sinon — l'affichage reste
+ * identique pour les commandes sans lien.
+ */
+function ProductionBadge({
+  commande,
+  production
+}: {
+  commande: Commande;
+  production: ProductionSnapshot;
+}) {
+  const chantier = productionForCommande(production, commande);
+  if (!chantier || chantier.totalUnites === 0) {
+    return null;
+  }
+
+  const blocked = chantier.alertes.length;
+  const done = chantier.terminePieces >= chantier.totalPieces;
+  const tone = blocked ? "red" : done ? "green" : chantier.terminePieces > 0 ? "orange" : "slate";
+  const label = blocked
+    ? `Fab ${chantier.terminePieces}/${chantier.totalPieces} · ${blocked} bloqué${blocked > 1 ? "s" : ""}`
+    : done
+      ? `Fab terminée ${chantier.terminePieces}/${chantier.totalPieces}`
+      : `Fab ${chantier.terminePieces}/${chantier.totalPieces}`;
+
+  return (
+    <span
+      className={`badge badge--${tone}`}
+      title={`Atelier « ${chantier.referenceClient} » — ${chantier.pct} % des pièces terminées`}
+    >
+      {label}
+    </span>
+  );
 }
 
 function getColumns(view: TableView): ColumnDefinition[] {
@@ -93,10 +134,12 @@ function normalize(value: string) {
 function MobileCard({
   commande,
   view,
+  production,
   onEdit
 }: {
   commande: Commande;
   view: TableView;
+  production: ProductionSnapshot;
   onEdit: (commande: Commande) => void;
 }) {
   const daysSince = getDaysSinceCommande(commande);
@@ -114,6 +157,7 @@ function MobileCard({
       <div className="commande-card__meta">
         <span>{commande.typeCommande}</span>
         <span>{commande.statutCommande}</span>
+        <ProductionBadge commande={commande} production={production} />
       </div>
 
       <div className="commande-card__grid">
@@ -157,6 +201,7 @@ function MobileCard({
 }
 
 export function CommandesTable({ items, onEdit, view }: CommandesTableProps) {
+  const production = useProduction();
   const columns = getColumns(view);
   const [sortKey, setSortKey] = useState<ColumnKey>("intervention");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -214,7 +259,7 @@ export function CommandesTable({ items, onEdit, view }: CommandesTableProps) {
     <>
       <div className="commandes-cards">
         {visibleItems.map((commande) => (
-          <MobileCard key={commande.id} commande={commande} view={view} onEdit={onEdit} />
+          <MobileCard key={commande.id} commande={commande} view={view} production={production} onEdit={onEdit} />
         ))}
       </div>
 
@@ -260,7 +305,12 @@ export function CommandesTable({ items, onEdit, view }: CommandesTableProps) {
                     </div>
                   </td>
                   <td>{commande.typeCommande}</td>
-                  <td>{commande.statutCommande}</td>
+                  <td>
+                    <div className="table-primary">
+                      <span>{commande.statutCommande}</span>
+                      <ProductionBadge commande={commande} production={production} />
+                    </div>
+                  </td>
                   <td>
                     <AlertBadge commande={commande} />
                   </td>
