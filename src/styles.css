@@ -1388,6 +1388,103 @@ textarea:focus {
   -webkit-line-clamp: 2;
 }
 
+/* Avancement de fabrication atelier (prodoutil) sur le planning TV.
+   Une seule ligne : une journée chargée empile beaucoup de cartes. */
+.calendar-event__fab {
+  margin-top: 0.4rem;
+  padding: 0.22rem 0.4rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.calendar-event__fab svg {
+  flex: none;
+}
+
+.calendar-event__fab .calendar-event__fab-count {
+  display: inline-block;
+  flex: none;
+  color: inherit;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.calendar-event__fab .calendar-event__fab-bar {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 1.5rem;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.24);
+  overflow: hidden;
+}
+
+.calendar-event__fab .calendar-event__fab-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: currentColor;
+  transition: width 0.3s ease;
+}
+
+.calendar-event__fab .calendar-event__fab-flag {
+  display: inline-block;
+  flex: none;
+  color: inherit;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.calendar-event__fab--attente {
+  background: var(--slate-soft);
+  color: #475569;
+}
+
+.calendar-event__fab--encours {
+  background: var(--orange-soft);
+  color: #c2410c;
+}
+
+.calendar-event__fab--termine {
+  background: var(--green-soft);
+  color: #0f8a5f;
+}
+
+.calendar-event__fab--alerte {
+  background: var(--red-soft);
+  color: #dc2626;
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+/* La TV tourne le plus souvent en thème sombre : on remonte la luminosité
+   des teintes pour rester lisible de loin. */
+:root[data-theme="dark"] .calendar-event__fab--attente {
+  color: #cbd5e1;
+}
+
+:root[data-theme="dark"] .calendar-event__fab--encours {
+  color: #fb923c;
+}
+
+:root[data-theme="dark"] .calendar-event__fab--termine {
+  color: #34d399;
+}
+
+:root[data-theme="dark"] .calendar-event__fab--alerte {
+  color: #f87171;
+}
+
 .calendar-event--pose {
   border-left-color: #2563eb;
 }

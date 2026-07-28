@@ -8,6 +8,7 @@ import {
   Bell,
   CalendarDays,
   Download,
+  Factory,
   FileText,
   LogIn,
   LogOut,
@@ -56,6 +57,12 @@ import {
   sortFabricationCommandes,
   toDraft
 } from "./lib/business";
+import {
+  productionForCommande,
+  useProduction,
+  type ChantierProduction,
+  type ProductionSnapshot
+} from "./lib/production";
 import { createCommandesStore } from "./lib/store";
 import type { AppUser, Commande, CommandeDraft, FabricationOrderUpdate, ThemeMode, TrashItem } from "./types";
 
@@ -973,12 +980,65 @@ function TrashPage({
   );
 }
 
+/**
+ * Avancement de fabrication (atelier prodoutil) affiché sur le planning TV.
+ * Tenu sur une seule ligne : les journées chargées empilent beaucoup de
+ * cartes, chaque pixel de hauteur compte. La couleur et la jauge portent
+ * l'état, seul un blocage mérite du texte.
+ * N'apparaît que si la commande est liée à un chantier atelier (liaison
+ * manuelle dans la fiche, ou n° de devis identique).
+ */
+function CalendarFabBadge({ chantier }: { chantier: ChantierProduction }) {
+  const blocked = chantier.alertes.length;
+  const done = chantier.terminePieces >= chantier.totalPieces;
+  const tone = blocked ? "alerte" : done ? "termine" : chantier.terminePieces > 0 ? "encours" : "attente";
+  const stateLabel = blocked
+    ? `${blocked} unité${blocked > 1 ? "s" : ""} bloquée${blocked > 1 ? "s" : ""}`
+    : done
+      ? "fabrication terminée"
+      : chantier.terminePieces > 0
+        ? "fabrication en cours"
+        : "fabrication à faire";
+  const details = [
+    `Atelier « ${chantier.referenceClient} »`,
+    `${chantier.terminePieces}/${chantier.totalPieces} pièces terminées (${chantier.pct} %)`,
+    chantier.enCours > 0 ? `${chantier.enCours} unité${chantier.enCours > 1 ? "s" : ""} en cours` : null,
+    ...chantier.alertes.map((alerte) => `Bloqué : ${alerte.repere || "sans repère"} — ${alerte.motif}`)
+  ].filter(Boolean);
+
+  return (
+    <div className={`calendar-event__fab calendar-event__fab--${tone}`} title={details.join("\n")}>
+      <Factory size={12} aria-hidden="true" />
+      <span className="calendar-event__fab-count">
+        {chantier.terminePieces}/{chantier.totalPieces}
+      </span>
+      <span
+        className="calendar-event__fab-bar"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={chantier.pct}
+        aria-label={`Fabrication : ${chantier.pct} % des pièces terminées, ${stateLabel}`}
+      >
+        <span className="calendar-event__fab-bar-fill" style={{ width: `${chantier.pct}%` }} />
+      </span>
+      {blocked ? (
+        <span className="calendar-event__fab-flag">
+          {blocked} bloqué{blocked > 1 ? "s" : ""}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function CalendarEvent({
   commande,
+  production,
   onEdit,
   onDragStart
 }: {
   commande: Commande;
+  production: ProductionSnapshot;
   onEdit?: (commande: Commande) => void;
   onDragStart?: (commande: Commande) => void;
 }) {
@@ -990,6 +1050,7 @@ function CalendarEvent({
   const suivi = commande.commentaireSuivi.trim();
   const planningState = getPlanningEventState(commande);
   const isInteractive = Boolean(onEdit);
+  const chantier = productionForCommande(production, commande);
 
   return (
     <article
@@ -1025,6 +1086,7 @@ function CalendarEvent({
         {commande.numeroDevis ? <small>{commande.numeroDevis}</small> : null}
         <small>{commande.statutCommande}</small>
       </div>
+      {chantier && chantier.totalPieces > 0 ? <CalendarFabBadge chantier={chantier} /> : null}
       {suivi ? <small className="calendar-event__comment">{suivi}</small> : null}
       {hasRange ? (
         <small>
@@ -1098,6 +1160,7 @@ function TvPage({
   const [weekAnchor, setWeekAnchor] = useState(new Date());
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropDayKey, setDropDayKey] = useState<string | null>(null);
+  const production = useProduction();
   const weekDays = getWeekDays(weekAnchor);
   const today = new Date();
   const hasTodayInWeek = weekDays.some((day) => isSameCalendarDay(day, today));
@@ -1254,6 +1317,7 @@ function TvPage({
                     <CalendarEvent
                       key={`${commande.id}-${dayKey}`}
                       commande={commande}
+                      production={production}
                       onEdit={onOpenEdit}
                       onDragStart={(dragged) => setDraggedId(dragged.id)}
                     />
