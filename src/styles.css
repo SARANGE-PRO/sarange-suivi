@@ -1417,12 +1417,17 @@ textarea:focus {
   white-space: nowrap;
 }
 
+/* color: inherit obligatoire sur ces deux spans — sans lui, la règle
+   « .calendar-event span { color: var(--text-soft) } » s'applique
+   directement et gagne contre la couleur héritée du badge, ce qui rend
+   la jauge grise au lieu de la couleur de l'état. */
 .calendar-event__fab .calendar-event__fab-bar {
   display: block;
   flex: 1 1 auto;
   min-width: 1.5rem;
   height: 5px;
   border-radius: 999px;
+  color: inherit;
   background: rgba(100, 116, 139, 0.24);
   overflow: hidden;
 }
@@ -1431,6 +1436,7 @@ textarea:focus {
   display: block;
   height: 100%;
   border-radius: 999px;
+  color: inherit;
   background: currentColor;
   transition: width 0.3s ease;
 }
