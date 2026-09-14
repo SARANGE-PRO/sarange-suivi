@@ -1,5 +1,6 @@
 import { getApp, getApps } from "firebase/app";
 import { collection, getDocs, getFirestore, orderBy, query, Timestamp } from "firebase/firestore";
+import { formatPhoneNumber } from "./phone";
 
 // Lecture seule des devis de devis-sarange (même projet Firebase sarange-pro,
 // collection users/{uid}/quotes). Sert uniquement au bouton "Importer depuis
@@ -81,7 +82,9 @@ export async function fetchDevisList(uid: string): Promise<DevisSummary[]> {
       title: asString(data.title),
       clientId: typeof data.clientId === "string" && data.clientId ? data.clientId : null,
       clientName: asString(data.clientName),
-      clientPhone: asString(data.clientPhone),
+      // Mis en forme à la lecture (06 62 68 90 84) : les devis enregistrés avant
+      // la mise en forme s'affichent comme les nouveaux.
+      clientPhone: formatPhoneNumber(data.clientPhone),
       adresse: composeAdresse(clientData),
       totalTTC: typeof data.totalTTC === "number" ? data.totalTTC : null,
       status,
