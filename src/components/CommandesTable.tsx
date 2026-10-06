@@ -189,9 +189,11 @@ function MobileCard({
         ) : null}
       </div>
 
-      <p className="commande-card__comment">
-        {view === "facturation" ? commande.commentaireFacturation || "Aucun commentaire facturation." : commande.commentaireSuivi || "Aucun commentaire suivi."}
-      </p>
+      {(view === "facturation" ? commande.commentaireFacturation : commande.commentaireSuivi) ? (
+        <p className="commande-card__comment">
+          {view === "facturation" ? commande.commentaireFacturation : commande.commentaireSuivi}
+        </p>
+      ) : null}
 
       <button
         type="button"
@@ -339,9 +341,9 @@ export function CommandesTable({ items, onEdit, view }: CommandesTableProps) {
                   ) : null}
                   <td>{formatDate(commande.derniereMaj, true)}</td>
                   <td className="notes-cell">
-                    {view === "facturation"
-                      ? commande.commentaireFacturation || "Aucun commentaire."
-                      : commande.commentaireSuivi || "Aucun commentaire."}
+                    <div className="notes-clamp">
+                      {view === "facturation" ? commande.commentaireFacturation : commande.commentaireSuivi}
+                    </div>
                   </td>
                   <td>
                     <button

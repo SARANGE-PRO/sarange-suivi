@@ -2224,11 +2224,16 @@ html {
 }
 
 .app-shell .notes-cell {
-  display: -webkit-box;
   max-width: 22rem;
+}
+
+/* Limite à 3 lignes sur un bloc intérieur : la cellule reste une cellule. */
+.app-shell .notes-clamp {
+  display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
+  white-space: pre-line;
 }
 
 .app-shell .table-filter-row input {
@@ -2459,5 +2464,119 @@ html {
   /* Petites fenêtres (rappels, sauvegarde) : titre aéré en mode tiroir. */
   .modal-panel > h2 {
     padding-top: 1rem;
+  }
+}
+
+
+/* =====================================================================
+   REPRISE POINT PAR POINT (PC) ET CHECKLIST TÉLÉPHONE
+   ===================================================================== */
+
+/* PC : bouton Modifier du tableau à la taille de la ligne. */
+.app-shell .commandes-table .ghost-button {
+  padding: 0.55rem 0.85rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.app-shell .table-actions .ghost-button,
+.app-shell .table-actions .danger-button {
+  padding: 0.55rem 0.85rem;
+  font-size: 0.85rem;
+}
+
+/* PC : en-tête de tableau plus discret, tri lisible. */
+.app-shell .table-sort-button {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+}
+
+/* Clavier : focus visible en orange, partout. */
+.app-shell :focus-visible,
+.modal-panel :focus-visible,
+.auth-panel :focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+
+/* Écran tactile : pas d'effet de survol qui reste collé après un tap. */
+@media (hover: none) {
+  .app-shell .nav-link:hover,
+  .app-shell .ghost-button:hover,
+  .app-shell .icon-button:hover,
+  .app-shell .stat-card--link:hover,
+  .app-shell .commandes-table tbody tr:hover td {
+    transform: none;
+    border-color: var(--border);
+    color: inherit;
+    background: inherit;
+    box-shadow: inherit;
+  }
+
+  .app-shell .nav-link--active:hover {
+    background: var(--orange);
+    color: #ffffff;
+  }
+
+  /* Cibles au doigt : 44 px minimum. */
+  .app-shell .day-chip,
+  .modal-panel .day-chip {
+    padding: 0.7rem 1rem;
+  }
+
+  .app-shell .icon-button {
+    width: 2.9rem;
+    height: 2.9rem;
+  }
+}
+
+.auth-screen {
+  min-height: 100dvh;
+}
+
+@media (max-width: 1100px) {
+  /* Le dernier élément peut passer au-dessus du bouton flottant. */
+  .app-shell {
+    padding-bottom: calc(7.5rem + env(safe-area-inset-bottom));
+  }
+
+  /* Le tiroir du menu s'arrête au-dessus des onglets du bas. */
+  .app-shell .app-sidebar {
+    bottom: calc(4.9rem + env(safe-area-inset-bottom));
+    border-radius: 20px;
+  }
+
+  .app-shell--sidebar-collapsed .app-sidebar {
+    transform: translateX(calc(-100% - 1.5rem));
+  }
+
+  /* Le voile derrière le tiroir laisse les onglets du bas accessibles. */
+  .sidebar-backdrop {
+    bottom: calc(4.9rem + env(safe-area-inset-bottom));
+  }
+
+  /* Cartes : lecture rapide, sans bouton redondant. */
+  .app-shell .commande-card__grid div {
+    min-width: 7.5rem;
+  }
+
+  .app-shell .commande-card__comment {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    white-space: pre-line;
+  }
+
+  /* Corbeille : le tableau reste utilisable en défilant. */
+  .app-shell .trash-table {
+    min-width: 40rem;
+  }
+}
+
+@media (max-width: 900px) {
+  /* La corbeille n'a pas de cartes : on garde son tableau visible. */
+  .app-shell .table-wrap:has(.trash-table) {
+    display: block;
   }
 }
