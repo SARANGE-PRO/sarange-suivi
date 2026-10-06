@@ -10,6 +10,7 @@ import {
   Download,
   Factory,
   FileText,
+  LayoutDashboard,
   LogIn,
   LogOut,
   Menu,
@@ -21,6 +22,7 @@ import {
   Sun,
   Trash2,
   Upload,
+  X,
 } from "lucide-react";
 import { CommandeModal } from "./components/CommandeModal";
 import { CommandesTable } from "./components/CommandesTable";
@@ -259,9 +261,14 @@ function ShellLayout({
         <div className="brand-lockup">
           <div className="brand-lockup__mark">S.</div>
           <div className="sidebar-content">
-            <p className="eyebrow">Sarange</p>
-            <h1>Suivi commandes</h1>
+            <h1>
+              SARANGE<span className="brand-dot">.</span>
+            </h1>
+            <p className="brand-sub">Suivi commandes</p>
           </div>
+          <button type="button" className="sidebar-mobile-close" onClick={() => setIsSidebarCollapsed(true)} aria-label="Fermer le menu">
+            <X size={20} aria-hidden="true" />
+          </button>
         </div>
 
         <nav className="sidebar-nav sidebar-content">
@@ -288,15 +295,11 @@ function ShellLayout({
         </div>
 
         <div className="sidebar-panel sidebar-content">
-          <p className="eyebrow">Source</p>
-          <strong>{store.mode === "firebase" ? "Firebase Firestore" : "Mode local synchronisé"}</strong>
+          <strong>{store.mode === "firebase" && user ? user.email : "Mode local (sans compte)"}</strong>
           <small>
-            {store.mode === "firebase"
-              ? "Les changements bureau et TV remontent instantanément."
-              : "Le fallback local synchronise les onglets avec BroadcastChannel."}
+            {store.mode === "firebase" ? "Synchronisé en temps réel avec le planning TV." : "Données gardées sur cet ordinateur."}
           </small>
-          <small>Corbeille locale : {trashItems.length} dossier{trashItems.length > 1 ? "s" : ""}</small>
-          {store.mode === "firebase" && user ? <small>Connecté : {user.email}</small> : null}
+          <small>Corbeille : {trashItems.length} dossier{trashItems.length > 1 ? "s" : ""}</small>
         </div>
 
         <div className="sidebar-actions sidebar-content">
@@ -363,6 +366,28 @@ function ShellLayout({
 
         {children}
       </main>
+
+      {/* Téléphone : onglets en bas de l'écran et bouton flottant pour créer. */}
+      <nav className="mobile-nav" aria-label="Navigation principale">
+        {[
+          { to: "/", label: "Bureau", icon: LayoutDashboard, end: true },
+          { to: "/tv", label: "Planning", icon: CalendarDays },
+          { to: "/fabrication", label: "Fabrication", icon: Factory },
+          { to: "/facturation", label: "Facturation", icon: FileText }
+        ].map(({ to, label, icon: Icon, end }) => (
+          <NavLink key={to} to={to} end={end} onClick={closeSidebarOnMobile} className={({ isActive }) => (isActive ? "mobile-nav__item mobile-nav__item--active" : "mobile-nav__item")}>
+            <Icon size={22} aria-hidden="true" />
+            {label}
+          </NavLink>
+        ))}
+        <button type="button" className={isSidebarCollapsed ? "mobile-nav__item" : "mobile-nav__item mobile-nav__item--active"} onClick={() => setIsSidebarCollapsed((current) => !current)}>
+          <Menu size={22} aria-hidden="true" />
+          Menu
+        </button>
+      </nav>
+      <button type="button" className="fab" onClick={onOpenCreate} aria-label="Nouvelle commande" title="Nouvelle commande">
+        <Plus size={26} aria-hidden="true" />
+      </button>
     </div>
   );
 }
@@ -384,8 +409,10 @@ function AuthGate({
         <div className="brand-lockup">
           <div className="brand-lockup__mark">S.</div>
           <div>
-            <p className="eyebrow">Sarange</p>
-            <h1>Connexion au suivi</h1>
+            <h1>
+              SARANGE<span className="brand-dot">.</span>
+            </h1>
+            <p className="brand-sub">Suivi commandes</p>
           </div>
         </div>
 
@@ -444,11 +471,11 @@ function ViewToolbar({
             title={onOpenImport ? undefined : "Nécessite la connexion Firestore et un compte Google"}
           >
             <FileText size={18} aria-hidden="true" />
-            Importer depuis un devis
+            <span className="btn-label">Importer depuis un devis</span>
           </button>
           <button type="button" className="primary-button" onClick={onOpenCreate}>
             <Plus size={18} aria-hidden="true" />
-            Nouvelle commande
+            <span className="btn-label">Nouvelle commande</span>
           </button>
         </div>
       </div>

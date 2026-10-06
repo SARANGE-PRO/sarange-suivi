@@ -2021,3 +2021,443 @@ textarea:focus {
   color: var(--text-soft);
   font-size: 0.9rem;
 }
+
+
+/* =====================================================================
+   PASSE DESIGN SARANGE — bureau, listes, fiches. HORS PLANNING TV.
+   Cartes pleines sur ombre (sans bordure décorative), orange seule couleur
+   d'action, navigation mobile en bas de l'écran, fiche en tiroir.
+   Tout est scopé sur .app-shell / .modal-* / .auth-* : le planning TV
+   (.tv-*, .calendar-*) n'est pas concerné.
+   ===================================================================== */
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app-shell {
+  padding: 1rem;
+  gap: 1rem;
+}
+
+.app-shell .app-sidebar,
+.app-shell .view-section,
+.app-shell .table-wrap,
+.app-shell .empty-state,
+.app-shell .commande-card,
+.app-shell .fabrication-item,
+.auth-panel,
+.modal-panel {
+  backdrop-filter: none;
+  background: var(--bg-strong);
+  border: 0;
+  border-radius: 20px;
+  box-shadow: var(--shadow-soft);
+}
+
+.app-shell .app-sidebar {
+  top: 1rem;
+  height: calc(100vh - 2rem);
+  gap: 1.25rem;
+  border-radius: 24px;
+}
+
+.app-shell .brand-lockup__mark {
+  background: #0f172a;
+  box-shadow: none;
+}
+
+.app-shell .brand-lockup h1,
+.auth-panel .brand-lockup h1 {
+  font-size: 1.15rem;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.brand-dot {
+  color: var(--orange);
+}
+
+.brand-sub {
+  margin: 0.1rem 0 0;
+  color: var(--text-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.app-shell .nav-link {
+  padding: 0.8rem 0.9rem;
+  border-radius: 12px;
+  background: transparent;
+}
+
+.app-shell .nav-link:hover {
+  background: var(--orange-soft);
+  transform: none;
+}
+
+.app-shell .nav-link--active {
+  background: var(--orange);
+  border-color: transparent;
+  color: #ffffff;
+}
+
+.app-shell .nav-link--active .nav-link__count {
+  background: rgba(255, 255, 255, 0.24);
+  color: #ffffff;
+}
+
+.app-shell .sidebar-panel {
+  border: 0;
+  border-radius: 16px;
+  background: var(--slate-soft);
+}
+
+.app-shell .stat-card,
+:root[data-theme="dark"] .app-shell .stat-card {
+  border: 0;
+  border-radius: 16px;
+  background: var(--bg-strong);
+  box-shadow: var(--shadow-soft);
+  opacity: 1;
+}
+
+.app-shell .stat-card--link:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+
+/* ---- Boutons : l'orange est la seule couleur d'action ---- */
+.app-shell .primary-button,
+.modal-panel .primary-button,
+.auth-panel .primary-button {
+  border: 0;
+  border-radius: 14px;
+  background: var(--orange);
+  box-shadow: none;
+}
+
+.app-shell .primary-button:hover,
+.modal-panel .primary-button:hover,
+.auth-panel .primary-button:hover {
+  background: #ea580c;
+  transform: none;
+}
+
+.app-shell .ghost-button,
+.modal-panel .ghost-button,
+.auth-panel .ghost-button,
+.app-shell .icon-button {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-strong);
+  box-shadow: none;
+}
+
+.app-shell .ghost-button:hover,
+.modal-panel .ghost-button:hover,
+.app-shell .icon-button:hover {
+  border-color: var(--orange);
+  color: var(--orange);
+  transform: none;
+}
+
+.app-shell .danger-button,
+.modal-panel .danger-button {
+  border-radius: 14px;
+}
+
+/* ---- En-tête de vue : titre, actions, recherche. Sans texte superflu. ---- */
+.app-shell .view-section {
+  padding: 1.1rem 1.2rem;
+}
+
+.app-shell .section-heading .eyebrow {
+  display: none;
+}
+
+.app-shell .section-heading h3 {
+  font-size: 1.35rem;
+}
+
+.app-shell .search-field--wide {
+  max-width: 30rem;
+  margin-top: 0.9rem;
+}
+
+.app-shell .search-field span {
+  display: none;
+}
+
+.app-shell .input-with-icon input {
+  border-radius: 14px;
+  padding-top: 0.8rem;
+  padding-bottom: 0.8rem;
+}
+
+/* ---- Tableau : lignes alternées, clic sur la ligne, notes limitées ---- */
+.app-shell .commandes-table th,
+.app-shell .commandes-table td {
+  padding: 0.8rem 0.9rem;
+}
+
+.app-shell .commandes-table th {
+  font-size: 0.72rem;
+}
+
+.app-shell .commandes-table tbody tr {
+  cursor: pointer;
+}
+
+.app-shell .commandes-table tbody tr:nth-child(even) td {
+  background: rgba(15, 23, 42, 0.03);
+}
+
+:root[data-theme="dark"] .app-shell .commandes-table tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.app-shell .commandes-table tbody tr:hover td {
+  background: var(--orange-soft);
+}
+
+.app-shell .notes-cell {
+  display: -webkit-box;
+  max-width: 22rem;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.app-shell .table-filter-row input {
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.8rem;
+}
+
+.app-shell .badge {
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.78rem;
+}
+
+.app-shell .commande-card {
+  padding: 1rem 1.05rem;
+}
+
+.app-shell .fabrication-rank {
+  border-radius: 14px;
+  background: #0f172a;
+}
+
+/* ---- Navigation basse, bouton flottant, fermeture du menu ---- */
+.mobile-nav,
+.fab,
+.sidebar-mobile-close {
+  display: none;
+}
+
+@media (max-width: 1100px) {
+  .app-shell {
+    padding: 0.85rem 0.85rem calc(5.4rem + env(safe-area-inset-bottom));
+  }
+
+  .sidebar-floating-toggle {
+    display: none;
+  }
+
+  .app-shell .app-sidebar {
+    z-index: 31;
+  }
+
+  .app-shell .brand-lockup {
+    align-items: center;
+  }
+
+  .sidebar-mobile-close {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 2.6rem;
+    height: 2.6rem;
+    margin-left: auto;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-strong);
+    color: var(--text);
+  }
+
+  .mobile-nav {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 30;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding: 0.3rem 0.25rem calc(0.3rem + env(safe-area-inset-bottom));
+    background: #0f172a;
+    box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.18);
+  }
+
+  .mobile-nav__item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    padding: 0.25rem 0.1rem;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    text-align: center;
+  }
+
+  .mobile-nav__item svg {
+    box-sizing: content-box;
+    padding: 0.25rem 0.75rem;
+    border-radius: 10px;
+  }
+
+  .mobile-nav__item--active {
+    color: #ffffff;
+  }
+
+  .mobile-nav__item--active svg {
+    background: var(--orange);
+  }
+
+  .fab {
+    position: fixed;
+    right: 1rem;
+    bottom: calc(5rem + env(safe-area-inset-bottom));
+    z-index: 29;
+    display: grid;
+    place-items: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    border: 0;
+    border-radius: 999px;
+    background: var(--orange);
+    color: #ffffff;
+    box-shadow: 0 12px 28px rgba(249, 115, 22, 0.42);
+  }
+
+  .fab:active {
+    transform: scale(0.96);
+  }
+
+  /* Chiffres clés : une rangée qui défile, au lieu de cinq cartes empilées. */
+  .app-shell .quick-stats {
+    display: flex;
+    gap: 0.5rem;
+    margin: 0 -0.85rem;
+    padding: 0 0.85rem 0.25rem;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .app-shell .quick-stats::-webkit-scrollbar {
+    display: none;
+  }
+
+  .app-shell .stat-card {
+    flex: 0 0 8.6rem;
+    scroll-snap-align: start;
+  }
+
+  /* En-tête de vue : titre + icône d'import ; le bouton flottant crée. */
+  .app-shell .section-heading {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .app-shell .section-heading > div > p:last-child {
+    display: none;
+  }
+
+  .app-shell .section-heading h3 {
+    font-size: 1.2rem;
+  }
+
+  .app-shell .heading-actions .primary-button,
+  .app-shell .fabrication-toolbar .primary-button {
+    display: none;
+  }
+
+  .app-shell .heading-actions .ghost-button .btn-label {
+    display: none;
+  }
+
+  .app-shell .heading-actions .ghost-button {
+    width: 2.9rem;
+    height: 2.9rem;
+    padding: 0;
+  }
+
+  /* Cartes : toute la carte s'ouvre au doigt, plus de bouton Modifier. */
+  .app-shell .commande-card {
+    cursor: pointer;
+  }
+
+  .app-shell .commande-card .ghost-button--stretch {
+    display: none;
+  }
+
+  /* Fiche : tiroir qui monte du bas, en-tête et boutons toujours visibles. */
+  .modal-backdrop {
+    place-items: end center;
+    padding: 0;
+  }
+
+  .modal-panel {
+    width: 100%;
+    max-height: 94dvh;
+    padding: 0 1rem calc(1rem + env(safe-area-inset-bottom));
+    border-radius: 20px 20px 0 0;
+  }
+
+  .modal-panel__header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    flex-direction: row;
+    align-items: center;
+    margin: 0 -1rem;
+    padding: 1rem;
+    background: var(--bg-strong);
+  }
+
+  .modal-panel .modal-actions {
+    position: sticky;
+    bottom: calc(-1rem - env(safe-area-inset-bottom));
+    z-index: 2;
+    flex-direction: row;
+    margin: 1rem -1rem calc(-1rem - env(safe-area-inset-bottom));
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+    background: var(--bg-strong);
+    box-shadow: 0 -8px 20px rgba(15, 23, 42, 0.08);
+  }
+
+  .modal-panel .modal-actions__main {
+    flex: 1;
+    width: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-shell .stat-card {
+    flex-basis: 7.6rem;
+  }
+}
+
+@media (max-width: 1100px) {
+  /* Petites fenêtres (rappels, sauvegarde) : titre aéré en mode tiroir. */
+  .modal-panel > h2 {
+    padding-top: 1rem;
+  }
+}

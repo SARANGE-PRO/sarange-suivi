@@ -145,7 +145,7 @@ function MobileCard({
   const daysSince = getDaysSinceCommande(commande);
 
   return (
-    <article className="commande-card">
+    <article className="commande-card" onClick={() => onEdit(commande)}>
       <div className="commande-card__top">
         <div>
           {commande.numeroDevis ? <p className="commande-card__devis">{commande.numeroDevis}</p> : null}
@@ -193,7 +193,14 @@ function MobileCard({
         {view === "facturation" ? commande.commentaireFacturation || "Aucun commentaire facturation." : commande.commentaireSuivi || "Aucun commentaire suivi."}
       </p>
 
-      <button type="button" className="ghost-button ghost-button--stretch" onClick={() => onEdit(commande)}>
+      <button
+        type="button"
+        className="ghost-button ghost-button--stretch"
+        onClick={(event) => {
+          event.stopPropagation();
+          onEdit(commande);
+        }}
+      >
         Modifier
       </button>
     </article>
@@ -295,7 +302,7 @@ export function CommandesTable({ items, onEdit, view }: CommandesTableProps) {
               const daysSince = getDaysSinceCommande(commande);
 
               return (
-                <tr key={commande.id}>
+                <tr key={commande.id} onClick={() => onEdit(commande)} title="Ouvrir la fiche">
                   <td>
                     <div className="table-primary">
                       {commande.numeroDevis ? <strong>{commande.numeroDevis}</strong> : null}
@@ -337,7 +344,14 @@ export function CommandesTable({ items, onEdit, view }: CommandesTableProps) {
                       : commande.commentaireSuivi || "Aucun commentaire."}
                   </td>
                   <td>
-                    <button type="button" className="ghost-button" onClick={() => onEdit(commande)}>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onEdit(commande);
+                      }}
+                    >
                       Modifier
                     </button>
                   </td>
