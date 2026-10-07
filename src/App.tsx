@@ -27,6 +27,8 @@ import {
 import { CommandeModal } from "./components/CommandeModal";
 import { CommandesTable } from "./components/CommandesTable";
 import { ImportDevisModal } from "./components/ImportDevisModal";
+import { MobilePlanning } from "./components/MobilePlanning";
+import { useMediaQuery } from "./lib/useMediaQuery";
 import type { DevisSummary } from "./lib/quotes";
 import {
   STATUT_COMMANDE_OPTIONS,
@@ -1369,6 +1371,9 @@ function AppContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const { theme, toggleTheme } = useThemeMode();
+  // Téléphone : le planning est un agenda vertical dans le bureau ; la
+  // grille hebdomadaire (TV) reste réservée aux grands écrans.
+  const isPhone = useMediaQuery("(max-width: 900px)");
 
   const [isBackupReminderEnabled, setIsBackupReminderEnabled] = useState(() => {
     return window.localStorage.getItem("sarange-backup-reminder-enabled") === "true";
@@ -1721,7 +1726,18 @@ function AppContent() {
             </ShellLayout>
           }
         />
-        <Route path="/tv" element={<TvPage commandes={commandes} theme={theme} onToggleTheme={toggleTheme} onOpenEdit={openEditModal} onMoveIntervention={handleMoveIntervention} />} />
+        <Route
+          path="/tv"
+          element={
+            isPhone ? (
+              <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal} isBackupReminderEnabled={isBackupReminderEnabled} onToggleBackupReminder={handleToggleBackupReminder}>
+                <MobilePlanning commandes={commandes} onOpenEdit={openEditModal} />
+              </ShellLayout>
+            ) : (
+              <TvPage commandes={commandes} theme={theme} onToggleTheme={toggleTheme} onOpenEdit={openEditModal} onMoveIntervention={handleMoveIntervention} />
+            )
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 

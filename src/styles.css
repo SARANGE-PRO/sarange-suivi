@@ -2580,3 +2580,258 @@ html {
     display: block;
   }
 }
+
+
+/* =====================================================================
+   PLANNING TÉLÉPHONE : agenda vertical (la grille TV reste intacte)
+   ===================================================================== */
+.agenda {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.agenda__head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 20px;
+  background: var(--bg-strong);
+  box-shadow: var(--shadow-soft);
+}
+
+.agenda__title {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+
+.agenda__title strong {
+  display: block;
+  font-size: 0.98rem;
+  letter-spacing: -0.02em;
+}
+
+.agenda__title span {
+  display: block;
+  margin-top: 0.1rem;
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.agenda__today {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--orange);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-decoration: underline;
+}
+
+.agenda__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  padding: 0 0.3rem;
+  color: var(--text-soft);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.agenda__dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  margin-left: 0.3rem;
+  border-radius: 999px;
+}
+
+.agenda__dot--pose { background: #2563eb; }
+.agenda__dot--livraison { background: #16a34a; }
+.agenda__dot--enlevement { background: #f97316; }
+.agenda__dot--sav { background: #dc2626; }
+.agenda__dot--metrage { background: #9333ea; }
+
+.agenda__day {
+  border-radius: 20px;
+  background: var(--bg-strong);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+  scroll-margin-top: 0.85rem;
+}
+
+.agenda__day--empty {
+  box-shadow: none;
+  background: transparent;
+}
+
+.agenda__day--past {
+  opacity: 0.72;
+}
+
+.agenda__day--today {
+  box-shadow: 0 0 0 2px var(--orange), var(--shadow-soft);
+}
+
+.agenda__day-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.75rem 0.9rem 0.45rem;
+}
+
+.agenda__day--empty .agenda__day-head {
+  padding: 0.35rem 0.6rem;
+}
+
+.agenda__day-name {
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  text-transform: capitalize;
+}
+
+.agenda__day--empty .agenda__day-name {
+  font-size: 0.86rem;
+  color: var(--text-soft);
+}
+
+.agenda__day-date {
+  color: var(--text-soft);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.agenda__day-today {
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: var(--orange);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.agenda__day-count {
+  margin-left: auto;
+  min-width: 1.5rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--slate-soft);
+  color: var(--text-soft);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.agenda__empty {
+  display: none;
+}
+
+.agenda__day--empty .agenda__day-head::after {
+  content: "rien de prévu";
+  margin-left: auto;
+  color: var(--text-soft);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.agenda__events {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0 0.6rem 0.6rem;
+}
+
+.agenda__event {
+  display: grid;
+  gap: 0.2rem;
+  width: 100%;
+  padding: 0.7rem 0.8rem 0.7rem 0.9rem;
+  border: 0;
+  border-left: 5px solid #64748b;
+  border-radius: 12px;
+  background: var(--slate-soft);
+  color: var(--text);
+  text-align: left;
+}
+
+.agenda__event:active {
+  transform: scale(0.99);
+}
+
+.agenda__event--past {
+  opacity: 0.86;
+}
+
+.agenda__event--kept {
+  opacity: 0.7;
+}
+
+.agenda__event-kind {
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.agenda__event-client {
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.agenda__event-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.6rem;
+  color: var(--text-soft);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.agenda__fab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--text);
+}
+
+.agenda__fab--alerte {
+  color: #dc2626;
+}
+
+.agenda__event-range,
+.agenda__event-comment {
+  color: var(--text-soft);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.agenda__event-comment {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: pre-line;
+}
+
+.agenda__event--pose { border-left-color: #2563eb; background: rgba(37, 99, 235, 0.1); }
+.agenda__event--pose .agenda__event-kind { color: #2563eb; }
+.agenda__event--livraison { border-left-color: #16a34a; background: rgba(22, 163, 74, 0.1); }
+.agenda__event--livraison .agenda__event-kind { color: #16a34a; }
+.agenda__event--enlevement { border-left-color: #f97316; background: rgba(249, 115, 22, 0.1); }
+.agenda__event--enlevement .agenda__event-kind { color: #f97316; }
+.agenda__event--sav { border-left-color: #dc2626; background: rgba(220, 38, 38, 0.1); }
+.agenda__event--sav .agenda__event-kind { color: #dc2626; }
+.agenda__event--metrage { border-left-color: #9333ea; background: rgba(147, 51, 234, 0.1); }
+.agenda__event--metrage .agenda__event-kind { color: #9333ea; }
+.agenda__event--autre .agenda__event-kind { color: #64748b; }
+
+:root[data-theme="dark"] .agenda__event--pose { background: rgba(37, 99, 235, 0.18); }
+:root[data-theme="dark"] .agenda__event--livraison { background: rgba(22, 163, 74, 0.18); }
+:root[data-theme="dark"] .agenda__event--enlevement { background: rgba(249, 115, 22, 0.18); }
+:root[data-theme="dark"] .agenda__event--sav { background: rgba(220, 38, 38, 0.18); }
+:root[data-theme="dark"] .agenda__event--metrage { background: rgba(147, 51, 234, 0.18); }
