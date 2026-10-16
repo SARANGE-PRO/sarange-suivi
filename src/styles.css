@@ -2835,3 +2835,119 @@ html {
 :root[data-theme="dark"] .agenda__event--enlevement { background: rgba(249, 115, 22, 0.18); }
 :root[data-theme="dark"] .agenda__event--sav { background: rgba(220, 38, 38, 0.18); }
 :root[data-theme="dark"] .agenda__event--metrage { background: rgba(147, 51, 234, 0.18); }
+
+
+/* =====================================================================
+   FICHES SUR TÉLÉPHONE : bouton Enregistrer toujours accessible, sans zoom
+   ===================================================================== */
+
+/* Pas de zoom au double-tap, pas de grossissement auto du texte. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+
+/* La fiche passe au-dessus des onglets du bas (30), du bouton flottant (29)
+   et du menu latéral (31), qui masquaient le bouton Enregistrer. */
+.modal-backdrop {
+  z-index: 40;
+}
+
+/* Rien ne déborde sur le côté : champs date iOS compris. */
+.modal-panel {
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+.modal-panel .field {
+  min-width: 0;
+}
+
+.modal-panel input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  min-width: 0;
+  min-height: 3.1rem;
+  text-align: left;
+}
+
+.modal-panel input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+}
+
+@media (max-width: 1100px) {
+  /* Tiroir : la barre d'actions colle au bas du tiroir, marge de sécurité
+     iPhone incluse, au lieu d'un décalage négatif qui la sortait de l'écran. */
+  .modal-panel {
+    max-height: 94vh;
+    max-height: 94dvh;
+    padding: 0 1rem;
+  }
+
+  .modal-panel > :last-child:not(.modal-form):not(.modal-actions) {
+    margin-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+
+  .modal-panel .modal-actions {
+    bottom: 0;
+    gap: 0.6rem;
+    margin: 1rem -1rem 0;
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+  }
+
+  .modal-panel .modal-actions__main {
+    gap: 0.6rem;
+  }
+
+  .modal-panel .modal-actions .primary-button,
+  .modal-panel .modal-actions .ghost-button,
+  .modal-panel .modal-actions .danger-button {
+    min-height: 3rem;
+    padding: 0.75rem 1rem;
+    white-space: nowrap;
+  }
+
+  .modal-form {
+    margin-top: 0.25rem;
+  }
+
+  .modal-panel .form-grid {
+    gap: 0.85rem;
+  }
+
+  .modal-panel .info-banner {
+    padding: 0.8rem 0.9rem;
+    border-radius: 16px;
+    font-size: 0.85rem;
+  }
+
+  /* Aucun champ sous 16 px : iOS ne zoome plus à la saisie. */
+  .modal-panel input,
+  .modal-panel select,
+  .modal-panel textarea,
+  .app-shell input,
+  .app-shell select,
+  .app-shell textarea {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Petit écran : Supprimer devient une icône pour laisser la place. */
+  .modal-panel .modal-actions .danger-button .btn-label {
+    display: none;
+  }
+
+  .modal-panel .modal-actions .danger-button {
+    width: 3rem;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .modal-panel .modal-actions__main .ghost-button,
+  .modal-panel .modal-actions__main .primary-button {
+    padding: 0.75rem 0.6rem;
+  }
+}

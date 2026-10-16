@@ -266,9 +266,15 @@ export function CommandeModal({
           <div className="modal-actions">
             <div>
               {draft.id ? (
-                <button type="button" className="danger-button danger-button--text" onClick={handleDelete} disabled={isSaving}>
+                <button
+                  type="button"
+                  className="danger-button danger-button--text"
+                  onClick={handleDelete}
+                  disabled={isSaving}
+                  aria-label="Supprimer"
+                >
                   <Trash2 size={18} aria-hidden="true" />
-                  Supprimer
+                  <span className="btn-label">Supprimer</span>
                 </button>
               ) : null}
             </div>
