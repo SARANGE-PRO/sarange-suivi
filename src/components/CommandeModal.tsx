@@ -93,7 +93,7 @@ export function CommandeModal({
 
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
-      <div className="modal-panel" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+      <div className="modal-panel modal-panel--form" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
         <div className="modal-panel__header">
           <div>
             <p className="eyebrow">Commande</p>
@@ -105,162 +105,164 @@ export function CommandeModal({
         </div>
 
         <form className="modal-form" onSubmit={handleSubmit}>
-          <div className="form-grid">
-            <label className="field">
-              <span>N° devis</span>
-              <input value={draft.numeroDevis} onChange={(event) => updateField("numeroDevis", event.target.value)} />
-            </label>
+          <div className="modal-body">
+            <div className="form-grid">
+              <label className="field">
+                <span>N° devis</span>
+                <input value={draft.numeroDevis} onChange={(event) => updateField("numeroDevis", event.target.value)} />
+              </label>
 
-            <label className="field">
-              <span>Client</span>
-              <input value={draft.client} onChange={(event) => updateField("client", event.target.value)} />
-            </label>
+              <label className="field">
+                <span>Client</span>
+                <input value={draft.client} onChange={(event) => updateField("client", event.target.value)} />
+              </label>
 
-            <label className="field">
-              <span>Type commande</span>
-              <select value={draft.typeCommande} onChange={(event) => updateField("typeCommande", event.target.value)}>
-                {TYPE_COMMANDE_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <label className="field">
+                <span>Type commande</span>
+                <select value={draft.typeCommande} onChange={(event) => updateField("typeCommande", event.target.value)}>
+                  {TYPE_COMMANDE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <label className="field">
-              <span>Statut commande</span>
-              <select value={draft.statutCommande} onChange={(event) => updateField("statutCommande", event.target.value)}>
-                {STATUT_COMMANDE_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <label className="field">
+                <span>Statut commande</span>
+                <select value={draft.statutCommande} onChange={(event) => updateField("statutCommande", event.target.value)}>
+                  {STATUT_COMMANDE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <label className="field">
-              <span>Date commande</span>
-              <input
-                type="date"
-                value={draft.dateCommande}
-                onChange={(event) => updateField("dateCommande", event.target.value)}
-              />
-            </label>
+              <label className="field">
+                <span>Date commande</span>
+                <input
+                  type="date"
+                  value={draft.dateCommande}
+                  onChange={(event) => updateField("dateCommande", event.target.value)}
+                />
+              </label>
 
-            <label className="field">
-              <span>Date métrage / pose / livraison / enlèvement</span>
-              <input
-                type="date"
-                value={draft.datePosePrevue}
-                onChange={(event) => updateField("datePosePrevue", event.target.value)}
-              />
-            </label>
+              <label className="field">
+                <span>Date métrage / pose / livraison / enlèvement</span>
+                <input
+                  type="date"
+                  value={draft.datePosePrevue}
+                  onChange={(event) => updateField("datePosePrevue", event.target.value)}
+                />
+              </label>
 
-            <label className="field">
-              <span>Date de fin pose si plusieurs jours</span>
-              <input
-                type="date"
-                value={draft.datePoseFin}
-                onChange={(event) => updateField("datePoseFin", event.target.value)}
-              />
-            </label>
+              <label className="field">
+                <span>Date de fin pose si plusieurs jours</span>
+                <input
+                  type="date"
+                  value={draft.datePoseFin}
+                  onChange={(event) => updateField("datePoseFin", event.target.value)}
+                />
+              </label>
 
-            {rangeDays.length > 1 ? (
-              <div className="field field--full">
-                <span>Jours d'intervention sur la période</span>
-                <div className="day-chips" role="group" aria-label="Jours d'intervention sur la période">
-                  {rangeDays.map((day, index) => {
-                    const isBoundary = index === 0 || index === rangeDays.length - 1;
-                    const isExcluded = !isBoundary && draft.joursExclus.includes(day);
-                    const date = parseDateInput(day);
-                    return (
-                      <button
-                        key={day}
-                        type="button"
-                        className={isExcluded ? "day-chip day-chip--off" : "day-chip"}
-                        onClick={isBoundary ? undefined : () => toggleJourExclu(day)}
-                        disabled={isBoundary}
-                        aria-pressed={!isExcluded}
-                        title={
-                          isBoundary
-                            ? "Jour de début ou de fin : modifiez les dates pour le changer"
-                            : isExcluded
-                              ? "Jour sans intervention — cliquer pour réactiver"
-                              : "Cliquer pour retirer ce jour du planning"
-                        }
-                      >
-                        {date ? formatShortDate(date) : day}
-                      </button>
-                    );
-                  })}
+              {rangeDays.length > 1 ? (
+                <div className="field field--full">
+                  <span>Jours d'intervention sur la période</span>
+                  <div className="day-chips" role="group" aria-label="Jours d'intervention sur la période">
+                    {rangeDays.map((day, index) => {
+                      const isBoundary = index === 0 || index === rangeDays.length - 1;
+                      const isExcluded = !isBoundary && draft.joursExclus.includes(day);
+                      const date = parseDateInput(day);
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          className={isExcluded ? "day-chip day-chip--off" : "day-chip"}
+                          onClick={isBoundary ? undefined : () => toggleJourExclu(day)}
+                          disabled={isBoundary}
+                          aria-pressed={!isExcluded}
+                          title={
+                            isBoundary
+                              ? "Jour de début ou de fin : modifiez les dates pour le changer"
+                              : isExcluded
+                                ? "Jour sans intervention — cliquer pour réactiver"
+                                : "Cliquer pour retirer ce jour du planning"
+                          }
+                        >
+                          {date ? formatShortDate(date) : day}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <small className="field-hint">Cliquez sur un jour pour le retirer du planning (jour non travaillé sur ce chantier).</small>
                 </div>
-                <small className="field-hint">Cliquez sur un jour pour le retirer du planning (jour non travaillé sur ce chantier).</small>
-              </div>
-            ) : null}
+              ) : null}
 
-            <label className="field">
-              <span>Date SAV prévue</span>
-              <input
-                type="date"
-                value={draft.dateSavPrevue}
-                onChange={(event) => updateField("dateSavPrevue", event.target.value)}
-              />
-            </label>
+              <label className="field">
+                <span>Date SAV prévue</span>
+                <input
+                  type="date"
+                  value={draft.dateSavPrevue}
+                  onChange={(event) => updateField("dateSavPrevue", event.target.value)}
+                />
+              </label>
 
-            <label className="field">
-              <span>État facturation</span>
-              <select
-                value={draft.etatFacturation}
-                onChange={(event) => updateField("etatFacturation", event.target.value)}
-              >
-                {ETAT_FACTURATION_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <label className="field">
+                <span>État facturation</span>
+                <select
+                  value={draft.etatFacturation}
+                  onChange={(event) => updateField("etatFacturation", event.target.value)}
+                >
+                  {ETAT_FACTURATION_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <label className="field">
-              <span>N° facture</span>
-              <input
-                value={draft.numeroFacture}
-                onChange={(event) => updateField("numeroFacture", event.target.value)}
-              />
-            </label>
+              <label className="field">
+                <span>N° facture</span>
+                <input
+                  value={draft.numeroFacture}
+                  onChange={(event) => updateField("numeroFacture", event.target.value)}
+                />
+              </label>
 
-            <label className="field">
-              <span>Date facture</span>
-              <input type="date" value={draft.dateFacture} onChange={(event) => updateField("dateFacture", event.target.value)} />
-            </label>
+              <label className="field">
+                <span>Date facture</span>
+                <input type="date" value={draft.dateFacture} onChange={(event) => updateField("dateFacture", event.target.value)} />
+              </label>
 
-            <label className="field field--full">
-              <span>Commentaire suivi</span>
-              <textarea
-                rows={4}
-                value={draft.commentaireSuivi}
-                onChange={(event) => updateField("commentaireSuivi", event.target.value)}
-              />
-            </label>
+              <label className="field field--full">
+                <span>Commentaire suivi</span>
+                <textarea
+                  rows={4}
+                  value={draft.commentaireSuivi}
+                  onChange={(event) => updateField("commentaireSuivi", event.target.value)}
+                />
+              </label>
 
-            <label className="field field--full">
-              <span>Commentaire facturation</span>
-              <textarea
-                rows={3}
-                value={draft.commentaireFacturation}
-                onChange={(event) => updateField("commentaireFacturation", event.target.value)}
-              />
-            </label>
-          </div>
+              <label className="field field--full">
+                <span>Commentaire facturation</span>
+                <textarea
+                  rows={3}
+                  value={draft.commentaireFacturation}
+                  onChange={(event) => updateField("commentaireFacturation", event.target.value)}
+                />
+              </label>
+            </div>
 
-          <ProductionSection
-            draft={draft}
-            onPatch={(patch) => setDraft((current) => ({ ...current, ...patch }))}
-          />
+            <ProductionSection
+              draft={draft}
+              onPatch={(patch) => setDraft((current) => ({ ...current, ...patch }))}
+            />
 
-          <div className="info-banner">
-            La sauvegarde applique automatiquement la date de commande, la dernière mise à jour, le renommage du
-            statut prêt selon le type de commande et la synchronisation facturation vers suivi.
+            <div className="info-banner">
+              La sauvegarde applique automatiquement la date de commande, la dernière mise à jour, le renommage du
+              statut prêt selon le type de commande et la synchronisation facturation vers suivi.
+            </div>
           </div>
 
           <div className="modal-actions">

@@ -2951,3 +2951,92 @@ html {
     padding: 0.75rem 0.6rem;
   }
 }
+
+
+/* =====================================================================
+   FICHE COMMANDE : titre et boutons fixes, seul le contenu défile.
+   Fond opaque (le fond sombre à 96 % laissait voir la page dessous) et
+   plus de barre « sticky », mal redessinée par iOS pendant le défilement.
+   ===================================================================== */
+:root {
+  --modal-surface: #ffffff;
+}
+
+:root[data-theme="dark"] {
+  --modal-surface: #0f172a;
+}
+
+.modal-panel {
+  background: var(--modal-surface);
+}
+
+.modal-panel--form {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.modal-panel--form .modal-panel__header {
+  flex: none;
+  position: static;
+  margin: 0;
+  padding: 1.35rem 1.35rem 0.75rem;
+  background: var(--modal-surface);
+}
+
+.modal-panel--form .modal-form {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  margin: 0;
+}
+
+.modal-panel--form .modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.35rem 1.35rem 1rem;
+}
+
+.modal-panel--form .modal-actions {
+  flex: none;
+  position: static;
+  margin: 0;
+  padding: 0.9rem 1.35rem 1.35rem;
+  border-top: 1px solid var(--border);
+  background: var(--modal-surface);
+  box-shadow: none;
+}
+
+.modal-panel .ghost-button {
+  background: var(--modal-surface);
+}
+
+@media (max-width: 1100px) {
+  .modal-panel--form {
+    height: auto;
+    max-height: 92vh;
+    max-height: 92dvh;
+    padding: 0;
+  }
+
+  .modal-panel--form .modal-panel__header {
+    flex-direction: row;
+    align-items: center;
+    padding: 1rem 1rem 0.6rem;
+  }
+
+  .modal-panel--form .modal-body {
+    padding: 0.25rem 1rem 1rem;
+  }
+
+  .modal-panel--form .modal-actions {
+    flex-direction: row;
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+  }
+}
