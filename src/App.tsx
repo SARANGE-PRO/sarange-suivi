@@ -1178,12 +1178,14 @@ function TvPage({
   theme,
   onToggleTheme,
   onOpenEdit,
+  onCreateOnDay,
   onMoveIntervention
 }: {
   commandes: Commande[];
   theme: ThemeMode;
   onToggleTheme: () => void;
   onOpenEdit: (commande: Commande) => void;
+  onCreateOnDay: (day: Date) => void;
   onMoveIntervention: (commande: Commande, targetDay: Date) => void;
 }) {
   const [weekAnchor, setWeekAnchor] = useState(new Date());
@@ -1295,6 +1297,15 @@ function TvPage({
             <article
               key={dayKey}
               className={dayClassName}
+              // Clic dans le vide d'un jour : nouveau dossier daté de ce jour
+              // (un clic sur une intervention ouvre toujours sa fiche).
+              onClick={(event) => {
+                if ((event.target as HTMLElement).closest(".calendar-event, button, a")) {
+                  return;
+                }
+                onCreateOnDay(day);
+              }}
+              title="Cliquer dans le vide pour créer un rendez-vous ce jour"
               onDragOver={
                 draggedId
                   ? (event) => {
@@ -1335,7 +1346,18 @@ function TvPage({
                   {formatShortDate(day)}
                   {isToday ? <small>Aujourd'hui</small> : null}
                 </span>
-                <strong>{dayItems.length}</strong>
+                <div className="calendar-day__tools">
+                  <button
+                    type="button"
+                    className="calendar-day__add"
+                    onClick={() => onCreateOnDay(day)}
+                    title={`Nouveau rendez-vous le ${formatShortDate(day)}`}
+                    aria-label={`Nouveau rendez-vous le ${formatShortDate(day)}`}
+                  >
+                    <Plus size={16} aria-hidden="true" />
+                  </button>
+                  <strong>{dayItems.length}</strong>
+                </div>
               </header>
 
               <div className="calendar-day__events">
@@ -1492,6 +1514,13 @@ function AppContent() {
 
   function openCreateModal() {
     setDraft(createEmptyCommande());
+    setIsModalOpen(true);
+  }
+
+  // Depuis le planning : nouveau dossier déjà daté du jour cliqué. Le statut
+  // par défaut (« Métrage à faire ») le place en Métrage, modifiable dans la fiche.
+  function openCreateModalOnDay(day: Date) {
+    setDraft({ ...createEmptyCommande(), datePosePrevue: formatAsDateInput(day) });
     setIsModalOpen(true);
   }
 
@@ -1731,10 +1760,10 @@ function AppContent() {
           element={
             isPhone ? (
               <ShellLayout commandes={commandes} trashItems={trashItems} user={user} theme={theme} onToggleTheme={toggleTheme} onSignOut={handleSignOut} onOpenCreate={openCreateModal} isBackupReminderEnabled={isBackupReminderEnabled} onToggleBackupReminder={handleToggleBackupReminder}>
-                <MobilePlanning commandes={commandes} onOpenEdit={openEditModal} />
+                <MobilePlanning commandes={commandes} onOpenEdit={openEditModal} onCreateOnDay={openCreateModalOnDay} />
               </ShellLayout>
             ) : (
-              <TvPage commandes={commandes} theme={theme} onToggleTheme={toggleTheme} onOpenEdit={openEditModal} onMoveIntervention={handleMoveIntervention} />
+              <TvPage commandes={commandes} theme={theme} onToggleTheme={toggleTheme} onOpenEdit={openEditModal} onCreateOnDay={openCreateModalOnDay} onMoveIntervention={handleMoveIntervention} />
             )
           }
         />

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Factory } from "lucide-react";
+import { ArrowLeft, ArrowRight, Factory, Plus } from "lucide-react";
 import {
   formatDate,
   formatWeekTitle,
@@ -21,7 +21,8 @@ import type { Commande } from "../types";
  * Planning TÉLÉPHONE : un agenda vertical, jour par jour, à la place de la
  * grille hebdomadaire de la TV (qui reste réservée aux grands écrans).
  * Mêmes règles que la TV : mêmes jours, mêmes types d'intervention, mêmes
- * couleurs ; un tap sur une intervention ouvre la fiche.
+ * couleurs ; un tap sur une intervention ouvre la fiche, le « + » d'un jour
+ * crée un nouveau dossier daté de ce jour.
  */
 
 const KIND_ORDER: Record<string, number> = { pose: 1, livraison: 2, enlevement: 3, sav: 4, autre: 5, metrage: 6 };
@@ -43,7 +44,15 @@ function isSameDay(left: Date, right: Date) {
   return startOfDay(left).getTime() === startOfDay(right).getTime();
 }
 
-export function MobilePlanning({ commandes, onOpenEdit }: { commandes: Commande[]; onOpenEdit: (commande: Commande) => void }) {
+export function MobilePlanning({
+  commandes,
+  onOpenEdit,
+  onCreateOnDay
+}: {
+  commandes: Commande[];
+  onOpenEdit: (commande: Commande) => void;
+  onCreateOnDay: (day: Date) => void;
+}) {
   const [weekAnchor, setWeekAnchor] = useState(new Date());
   const production = useProduction();
   const todayRef = useRef<HTMLElement | null>(null);
@@ -115,6 +124,14 @@ export function MobilePlanning({ commandes, onOpenEdit }: { commandes: Commande[
               <span className="agenda__day-date">{dayMonthFormatter.format(day)}</span>
               {isToday ? <span className="agenda__day-today">Aujourd'hui</span> : null}
               {dayItems.length ? <span className="agenda__day-count">{dayItems.length}</span> : null}
+              <button
+                type="button"
+                className="agenda__day-add"
+                onClick={() => onCreateOnDay(day)}
+                aria-label={`Nouveau rendez-vous le ${weekdayFormatter.format(day)} ${dayMonthFormatter.format(day)}`}
+              >
+                <Plus size={16} aria-hidden="true" />
+              </button>
             </header>
 
             {dayItems.length === 0 ? (

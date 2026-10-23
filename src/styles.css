@@ -1312,6 +1312,44 @@ textarea:focus {
   background: var(--slate-soft);
 }
 
+/* Création d'un rendez-vous depuis le planning : « + » du jour, ou clic
+   dans le vide de la colonne. */
+.calendar-day {
+  cursor: pointer;
+}
+
+.calendar-day__tools {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.calendar-day__add,
+.agenda__day-add {
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.calendar-day__add {
+  width: 1.9rem;
+  height: 1.9rem;
+}
+
+.calendar-day__add:hover,
+.calendar-day__add:focus-visible,
+.agenda__day-add:active {
+  border-style: solid;
+  border-color: rgba(249, 115, 22, 0.45);
+  background: var(--orange-soft);
+  color: var(--orange);
+}
+
 .calendar-day__events {
   position: relative;
   z-index: 1;
@@ -2730,6 +2768,16 @@ html {
 
 .agenda__empty {
   display: none;
+}
+
+/* Toujours en bout de ligne, après le compteur ou « rien de prévu ». */
+.agenda__day-add {
+  order: 1;
+  align-self: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  margin-left: 0.4rem;
 }
 
 .agenda__day--empty .agenda__day-head::after {
